@@ -58,6 +58,7 @@ export component PackageManagerWindow inherits Window {
             LineEdit {
                 text <=> root.search-query;
                 placeholder-text: @tr("Search...");
+                accessible-label: @tr("Search...");
                 horizontal-stretch: 1;
                 edited(value) => { root.filter-packages(value); }
             }
@@ -97,6 +98,7 @@ export component PackageManagerWindow inherits Window {
                     LineEdit {
                         text <=> root.repository-url;
                         placeholder-text: "https://example.com/repo.json";
+                        accessible-label: @tr("Add Repository");
                         horizontal-stretch: 1;
                         accepted(value) => {
                             if value != "" && !root.busy { root.add-repository(value); }

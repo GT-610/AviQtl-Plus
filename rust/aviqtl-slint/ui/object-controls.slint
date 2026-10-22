@@ -525,6 +525,13 @@ export component ObjectSettingRow inherits Rectangle {
             text: root.row-data.label;
             checked: root.row-data.checked;
             enabled: root.row-data.interactive;
+            // A widget writes its own `checked` property on interaction, which
+            // drops the binding to the row. Mirror the projection through a
+            // private property so a replaced row (undo, preset, keyframes under
+            // the playhead) is applied again instead of leaving the last
+            // clicked state on screen.
+            private property <bool> projected: root.row-data.checked;
+            changed projected => { self.checked = self.projected; }
             toggled => {
                 root.set-bool(
                     root.row-data.audio-plugin,
@@ -562,6 +569,10 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            // Same reason as the boolean row: the drag assigns `value`, which
+            // removes the binding, so follow later projections explicitly.
+            private property <float> projected: root.row-data.number-value;
+            changed projected => { self.value = self.projected; }
             released => { root.finish-edit(); }
             changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive;
@@ -700,6 +711,10 @@ export component ObjectSettingRow inherits Rectangle {
             minimum: root.row-data.minimum;
             maximum: root.row-data.maximum;
             step: root.row-data.step;
+            private property <float> projected: root.row-data.right-interactive
+                ? root.row-data.end-number-value
+                : root.row-data.number-value;
+            changed projected => { self.value = self.projected; }
             released => { root.finish-edit(); }
             changed has-focus => { if !self.has-focus { root.finish-edit(); } }
             enabled: root.row-data.interactive && root.row-data.right-interactive;
@@ -737,6 +752,8 @@ export component ObjectSettingRow inherits Rectangle {
             model: root.row-data.option-labels;
             current-index: root.row-data.selected-option;
             enabled: root.row-data.interactive;
+            private property <int> projected: root.row-data.selected-option;
+            changed projected => { self.current-index = self.projected; }
             selected(value) => {
                 root.set-option(
                     root.row-data.audio-plugin,

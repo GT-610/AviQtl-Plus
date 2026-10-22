@@ -20,7 +20,6 @@ export component TimelineWindow inherits Window {
     min-width: 720px;
     min-height: 220px;
     forward-focus: timeline-shortcuts;
-    in-out property <string> action-status: "";
     private property <bool> drag-active: false;
     private property <TimelineDragFeedback> drag-feedback;
     callback preview-clip-drag(string, int, float, float, bool) -> TimelineDragFeedback;
@@ -112,8 +111,19 @@ export component TimelineWindow inherits Window {
         ) + 3,
         512
     );
-    private property <int> ruler-tick-count: min(floor(root.duration / 60) + 1, 2048);
-    private property <float> ruler-tick-interval: 1.0 * root.duration / max(root.ruler-tick-count - 1, 1);
+    // Qt picks the ruler interval from the zoom so labels keep a readable
+    // distance: 10 frames when zoomed in, 300 when zoomed out
+    // (Ruler.qml:160-175). A fixed 60-frame interval overlapped the labels at
+    // low zoom and spread them far apart at high zoom.
+    private property <float> ruler-tick-interval: root.pixels-per-frame > 5
+        ? 10
+        : root.pixels-per-frame > 1
+            ? 30
+            : root.pixels-per-frame > 0.5 ? 60 : 300;
+    private property <int> ruler-tick-count: min(
+        floor(root.duration / root.ruler-tick-interval) + 1,
+        2048
+    );
     callback timeline-action(string, int, int);
     callback seek-audio-frame(int, int);
     callback filter-objects(string, int);
@@ -201,7 +211,11 @@ export component TimelineWindow inherits Window {
     }
 
     changed pixels-per-frame => {
-        root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+        // Do not overwrite what the user is typing in the zoom field. Qt only
+        // refreshes the box while it is not focused (Ruler.qml:107-111).
+        if !zoom-field.has-focus {
+            root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+        }
     }
 
     function update-skimmer(frame: float, layer: int, ignore-snap: bool) {
@@ -503,6 +517,14 @@ export component TimelineWindow inherits Window {
                         height: 100%;
                         text <=> root.zoom-percent-text;
                         accessible-label: @tr("Timeline zoom");
+                        // Typing a zoom and then moving the focus away without
+                        // accepting it used to leave unapplied text in the
+                        // box; Qt refreshes the box whenever it loses focus.
+                        changed has-focus => {
+                            if !self.has-focus {
+                                root.zoom-percent-text = round(root.scale-to-zoom-percent(root.pixels-per-frame));
+                            }
+                        }
                         accepted(value) => {
                             if value.is-float() {
                                 root.apply-zoom-percent(value.to-float());
@@ -891,7 +913,15 @@ export component TimelineWindow inherits Window {
         z: 300;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { insert-layers-focus-timer.start(); }
+        insert-layers-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); insert-layers-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.insert-layers-visible = false;
@@ -965,7 +995,15 @@ export component TimelineWindow inherits Window {
         z: 300;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { shift-layers-focus-timer.start(); }
+        shift-layers-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); shift-layers-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.shift-layers-visible = false;
@@ -1155,7 +1193,15 @@ export component TimelineWindow inherits Window {
         width: 100%;
         height: 100%;
         forward-focus: context-search;
-        init => { context-search.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { context-search-focus-timer.start(); }
+        context-search-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); context-search.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.close-context-search();
@@ -1305,7 +1351,15 @@ export component TimelineWindow inherits Window {
         width: 100%;
         height: 100%;
         forward-focus: object-search;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { object-picker-focus-timer.start(); }
+        object-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); object-picker-focus.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.object-picker-visible = false;

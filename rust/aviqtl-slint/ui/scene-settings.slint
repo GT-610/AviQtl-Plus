@@ -35,19 +35,19 @@ export component SceneSettingsWindow inherits Window {
                     spacing: 9px;
                     Row {
                         Text { text: @tr("Scene Name:"); vertical-alignment: center; }
-                        LineEdit { text <=> root.scene-name; }
+                        LineEdit { text <=> root.scene-name; accessible-label: @tr("Scene Name:"); }
                     }
                     Row {
                         Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
-                        SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; }
+                        SpinBox { value <=> root.scene-width; minimum: 1; maximum: 8000; accessible-label: @tr("settings-width" => "Width:"); }
                     }
                     Row {
                         Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
-                        SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; }
+                        SpinBox { value <=> root.scene-height; minimum: 1; maximum: 8000; accessible-label: @tr("settings-height" => "Height:"); }
                     }
                     Row {
-                        Text { text: "FPS:"; vertical-alignment: center; }
-                        LineEdit { text <=> root.scene-fps; }
+                        Text { text: @tr("FPS:"); vertical-alignment: center; }
+                        LineEdit { text <=> root.scene-fps; accessible-label: @tr("FPS:"); }
                     }
                 }
             }
@@ -58,17 +58,18 @@ export component SceneSettingsWindow inherits Window {
                     spacing: 9px;
                     Row {
                         Text { text: @tr("Enable Snap:"); vertical-alignment: center; }
-                        CheckBox { checked <=> root.enable-snap; }
+                        CheckBox { checked <=> root.enable-snap; accessible-label: @tr("Enable Snap:"); }
                     }
                     Row {
                         Text { text: @tr("Magnetic Snap Range:"); vertical-alignment: center; }
-                        SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; }
+                        SpinBox { value <=> root.magnetic-snap-range; minimum: 1; maximum: 100; accessible-label: @tr("Magnetic Snap Range:"); }
                     }
                     Row {
                         Text { text: @tr("Grid Mode:"); vertical-alignment: center; }
                         ComboBox {
                             model: [@tr("Auto (Seconds/Frames)"), @tr("BPM (Music)"), @tr("Fixed Frame Count")];
                             current-index <=> root.grid-mode-index;
+                            accessible-label: @tr("Grid Mode:");
                         }
                     }
                 }
@@ -78,9 +79,9 @@ export component SceneSettingsWindow inherits Window {
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
-                    Row { Text { text: "BPM:"; vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; } }
-                    Row { Text { text: @tr("Time Signature (Subdivisions):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; } }
-                    Row { Text { text: @tr("Offset (Seconds):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; } }
+                    Row { Text { text: @tr("BPM:"); vertical-alignment: center; } LineEdit { text <=> root.grid-bpm; accessible-label: @tr("BPM:"); } }
+                    Row { Text { text: @tr("Time Signature (Subdivisions):"); vertical-alignment: center; } LineEdit { text <=> root.grid-subdivision; accessible-label: @tr("Time Signature (Subdivisions):"); } }
+                    Row { Text { text: @tr("Offset (Seconds):"); vertical-alignment: center; } LineEdit { text <=> root.grid-offset; accessible-label: @tr("Offset (Seconds):"); } }
                 }
             }
             if root.grid-mode-index == 2 : GroupBox {
@@ -88,7 +89,7 @@ export component SceneSettingsWindow inherits Window {
                 GridLayout {
                     padding: 10px;
                     spacing: 9px;
-                    Row { Text { text: @tr("Interval (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; } }
+                    Row { Text { text: @tr("Interval (Frames):"); vertical-alignment: center; } LineEdit { text <=> root.grid-interval; accessible-label: @tr("Interval (Frames):"); } }
                 }
             }
             Rectangle { vertical-stretch: 1; }

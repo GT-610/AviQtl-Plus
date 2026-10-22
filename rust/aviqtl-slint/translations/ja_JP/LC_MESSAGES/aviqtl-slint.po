@@ -1240,3 +1240,21 @@ msgstr "お気に入りを切り替え"
 
 msgid "Workspace"
 msgstr "ワークスペース"
+
+msgid "BPM:"
+msgstr "BPM:"
+
+msgid "FPS:"
+msgstr "FPS:"
+
+msgid "Image format"
+msgstr "画像形式"
+
+msgid "Resize clip end"
+msgstr "クリップの終端を調整"
+
+msgid "Resize clip start"
+msgstr "クリップの始点を調整"
+
+msgid "CRF:"
+msgstr "CRF:"

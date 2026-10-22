@@ -442,7 +442,7 @@ export component SystemSettingsWindow inherits Window {
                         SystemSettingSpinRow { label: @tr("Height"); value <=> root.default-project-height; minimum: 1; maximum: 16000; }
                         HorizontalLayout {
                             spacing: 10px;
-                            Text { text: @tr("Frame rate"); width: 260px; vertical-alignment: center; }
+                            Text { text: @tr("Frame rate"); width: 240px; vertical-alignment: center; }
                             LineEdit { text <=> root.default-project-fps; accessible-label: @tr("Frame rate"); horizontal-stretch: 1; }
                         }
                         SystemSettingSpinRow { label: @tr("Total frames"); value <=> root.default-project-frames; minimum: 1; maximum: 1000000; }
@@ -624,7 +624,15 @@ export component SystemSettingsWindow inherits Window {
         z: 200;
         width: 100%;
         height: 100%;
-        init => { self.focus(); }
+        // The focus waits for the next event-loop turn: taking it while the
+        // overlay is being created re-enters the backend's accessibility
+        // borrow (see the object-settings overlays).
+        init => { capture-focus-timer.start(); }
+        capture-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); capture.focus(); }
+        }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
                 root.recording-shortcut-index = -1;

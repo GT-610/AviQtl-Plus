@@ -21,19 +21,19 @@ export component ProjectSettingsWindow inherits Window {
             spacing: 10px;
             Row {
                 Text { text: @tr("settings-width" => "Width:"); vertical-alignment: center; }
-                SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; }
+                SpinBox { value <=> root.project-width; minimum: 1; maximum: 8000; accessible-label: @tr("settings-width" => "Width:"); }
             }
             Row {
                 Text { text: @tr("settings-height" => "Height:"); vertical-alignment: center; }
-                SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; }
+                SpinBox { value <=> root.project-height; minimum: 1; maximum: 8000; accessible-label: @tr("settings-height" => "Height:"); }
             }
             Row {
-                Text { text: "FPS:"; vertical-alignment: center; }
-                LineEdit { text <=> root.project-fps; }
+                Text { text: @tr("FPS:"); vertical-alignment: center; }
+                LineEdit { text <=> root.project-fps; accessible-label: @tr("FPS:"); }
             }
             Row {
                 Text { text: @tr("Sample Rate:"); vertical-alignment: center; }
-                SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; }
+                SpinBox { value <=> root.project-sample-rate; minimum: 8000; maximum: 192000; step-size: 1000; accessible-label: @tr("Sample Rate:"); }
             }
         }
         Rectangle { vertical-stretch: 1; }

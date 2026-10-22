@@ -342,6 +342,14 @@ export component TimelineClipItem inherits Rectangle {
         x: 0px;
         width: min(root.resize-handle-width, parent.width / 2);
         mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
+        accessible-role: button;
+        accessible-label: @tr("Resize clip start");
+        accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
+            root.clip-data.label,
+            root.clip-data.layer + 1,
+            root.clip-data.start,
+            root.clip-data.duration
+        );
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -358,6 +366,17 @@ export component TimelineClipItem inherits Rectangle {
                     (root.x + self.mouse-x) / 1px,
                     (root.y + self.mouse-y) / 1px,
                     event.modifiers.shift
+                );
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                // Qt's handle mouse areas accept the left button only, so a
+                // right press over a handle opens the clip menu through the
+                // background area. A Slint TouchArea consumes every button, so
+                // the handle has to forward the context request itself.
+                root.context-activate(
+                    root.clip-data.id,
+                    (self.absolute-position.x + self.mouse-x) / 1px,
+                    (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -393,6 +412,14 @@ export component TimelineClipItem inherits Rectangle {
         x: parent.width - self.width;
         width: min(root.resize-handle-width, parent.width / 2);
         mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
+        accessible-role: button;
+        accessible-label: @tr("Resize clip end");
+        accessible-description: @tr("Clip: {}, layer {}, starts at frame {} for {} frames",
+            root.clip-data.label,
+            root.clip-data.layer + 1,
+            root.clip-data.start,
+            root.clip-data.duration
+        );
         scroll-event(event) => {
             if root.scroll-requested(
                 event.delta-x,
@@ -409,6 +436,13 @@ export component TimelineClipItem inherits Rectangle {
                     (root.x + self.mouse-x) / 1px,
                     (root.y + self.mouse-y) / 1px,
                     event.modifiers.shift
+                );
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+                root.context-activate(
+                    root.clip-data.id,
+                    (self.absolute-position.x + self.mouse-x) / 1px,
+                    (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {

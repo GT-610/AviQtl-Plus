@@ -285,6 +285,67 @@ session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement ga
   scanning, menu behavior, pointer feel, device latency, and hardware-output verification remain in
   the deferred GUI suite.
 
+## 2026-10-21 final UI polish
+
+This pass was a visual and interaction audit of the Slint frontend at the 640x360 default main
+window. It changed presentation only; command meaning, window ownership, and the Qt-owned lifecycle
+are untouched. Every item below was reproduced against a running debug build before the fix.
+
+- The transport speed group no longer clips `1.0x`. The previous 130px cap (80px spin box plus a
+  multiplier label) was narrower than the standard `SpinBox` needs, so the theme drew the lower
+  spin button outside the box and on top of the multiplier. The box now uses its natural width,
+  the row uses 8px spacing, and the audio meter is 58px wide so the row still fits the 640px
+  default window with the right padding intact. Qt draws the multiplier inside an 80px spin box
+  (`MainWindow.qml:1122-1149`); Slint's `SpinBox` has no text formatter, so the percent value and
+  the multiplier stay separate controls as described above.
+- The main window now renders the workspace status line. `status-text` was written by every command
+  but had no presenter, so refused edits ("cannot add effect to a locked object") and completed
+  edits were silent. The bar uses `AppTheme.status-height`, ellipsizes long messages, and exposes
+  the full text through the text element. The redundant `timeline.action-status` property and its
+  host setter were removed.
+- The audio-plugin scan status is visible in the object-settings audio sidebar. Deferred,
+  unavailable, and failed plugin scans previously logged only to stderr, leaving an empty list.
+- Modal overlays are keyboard-reachable. The save confirmation, export cancel confirmation, export
+  result, effect-preset save, color picker, and font picker are now `FocusScope`s with initial
+  focus and Escape handling (save confirmation also accepts Return for Save), matching Qt's
+  `Dialog` behavior. The preset and font dialogs focus their text field so typing starts
+  immediately.
+- The timeline ruler chooses its tick interval from the zoom (10/30/60/300 frames) like
+  `Ruler.qml:160-175` instead of a fixed 60-frame interval, which overlapped labels when zoomed out
+  and spread them too far when zoomed in.
+- Wheel zoom no longer overwrites the zoom field while it is being edited, matching
+  `Ruler.qml:107-111`.
+- Trim handles forward right-click to the clip context menu (Qt's handle areas accept only the left
+  button, so the press reached the clip body) and expose names and clip descriptions to assistive
+  technology.
+- Parameter rows refresh the right control. Live preview used to match a refreshed row by kind
+  only, so dragging any numeric parameter after the first replaced the row's label, value, range,
+  and keyframe markers with the first numeric parameter in the stack. Matching now includes the
+  owning effect, parameter name, and audio-plugin flag; a regression test covers two effects with
+  one numeric control each.
+- Slider, check box, and combo box rows re-apply the projected value when the row is replaced.
+  Interaction assigns those widget properties, which drops the binding to `row-data`; the next
+  projection (undo, preset load, keyframes under the playhead) was ignored. Each widget now mirrors
+  its projection through a private property and re-applies it on change.
+- Package Manager shows Install only when the package is not installed or has an update, matching
+  the Qt `installedVer === "" || hasUpdate` predicate; an installed local-file plugin (which cannot
+  be removed) was previously offered for installation again.
+- Untranslated literals are translated: `FPS:`, `BPM:`, `Image format`, `CRF:`, and the two trim
+  handle names now have zh_CN/ja_JP entries. The settings frame-rate row uses the same 240px label
+  width as its neighbours.
+- Export, project-settings, scene-settings, package-manager, and object-settings fields that
+  relied on adjacent text now carry explicit accessible labels.
+- The export window opens at 620x700 instead of the 520x460 layout minimum. The form lives in a
+  `ScrollView`, so the smaller first-open size scrolled the range controls and the Start Export
+  buttons out of sight. Qt's `ExportDialog` is 620x580 for its tighter layout; the Slint form needs
+  about 700px of content height. The size is not persisted, matching Qt's transient dialog.
+
+Residual items deliberately not changed in this pass: playback viewport follow and drag
+auto-scroll (they change pointer feel and need the deferred native suite), multi-clip drag preview,
+sidebar scroll-to-effect, and Slint-side keyframe interpolation for audio-plugin easing. The Qt
+main window has no transport audio meter; the Slint row keeps it as a documented extension because
+the audio settings window already owns the Qt meter.
+
 ## Known issues
 
 - The `--validate-gpu` gate passes on a release build, which is what `README.md` documents. A

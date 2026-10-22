@@ -114,7 +114,8 @@ use crate::lifecycle::{RecentProject, merge_recent_project, recent_projects_from
 use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage};
 use crate::localization::{localized_effect_metadata, ui_language_from_locale};
 use crate::object_settings::{
-    object_settings_rows, timeline_context_catalog_categories, timeline_context_catalog_items,
+    is_same_parameter_row, object_settings_rows, parameter_row_updates,
+    timeline_context_catalog_categories, timeline_context_catalog_items,
 };
 use crate::playback::{
     audio_queue_lead_frames, samples_for_timeline_frame, scene_fps, stereo_levels,
@@ -953,6 +954,141 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(markers.row_data(1).unwrap().removable);
     assert!(!markers.row_data(1).unwrap().draggable);
     assert!(!markers.row_data(2).unwrap().removable);
+}
+
+#[test]
+fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
+    // A live drag refreshes the projected rows in place instead of rebuilding
+    // the list. Every numeric control projects a "number" row plus a
+    // "keyframes" row, so matching a row by kind alone would repaint the first
+    // numeric parameter of the stack with another effect's label, value,
+    // range, and markers.
+    let number_control = |param: &str, label: &str, value: f64, frames: &[i32]| ObjectControl {
+        kind: ObjectControlKind::Number,
+        source_kind: "slider".to_owned(),
+        param: Some(param.to_owned()),
+        label: label.to_owned(),
+        minimum: Some(0.0),
+        maximum: Some(100.0),
+        step: Some(1.0),
+        decimals: Some(1),
+        unit: String::new(),
+        filter: String::new(),
+        disabled: false,
+        keyframed: true,
+        value: json!(value),
+        relative_frame: 0,
+        clip_duration: 100,
+        interval_start: 0,
+        interval_end: 100,
+        start_value: json!(value),
+        end_value: json!(value),
+        start_interpolation: "linear".to_owned(),
+        keyframes: frames
+            .iter()
+            .map(|frame| KeyframePoint {
+                frame: *frame,
+                value: json!(value),
+                interpolation: "linear".to_owned(),
+                options: json!({"interp": "linear"}),
+            })
+            .collect(),
+        options: Vec::new(),
+    };
+    let settings = |amount: f64, amount_frames: &[i32]| ObjectSettings {
+        clip_id: 3,
+        clip_label: "Clip".to_owned(),
+        audio_plugin_mode: false,
+        effects: vec![
+            ObjectEffect {
+                index: 0,
+                id: "blur".to_owned(),
+                name: "Blur".to_owned(),
+                enabled: true,
+                selected: false,
+                removable: true,
+                controls: vec![number_control("size", "Size", 10.0, &[0])],
+            },
+            ObjectEffect {
+                index: 1,
+                id: "color".to_owned(),
+                name: "Color".to_owned(),
+                enabled: true,
+                selected: true,
+                removable: true,
+                controls: vec![number_control("amount", "Amount", amount, amount_frames)],
+            },
+        ],
+        audio_plugins: Vec::new(),
+    };
+
+    // Drag the second effect's "amount" from 0.4 to 0.8 and move its second
+    // keyframe; the first effect's "size" keeps its single keyframe.
+    let current_rows = object_settings_rows(&settings(0.4, &[0, 40]));
+    let updated_rows = object_settings_rows(&settings(0.8, &[0, 60]));
+    let updates = parameter_row_updates(&current_rows, &updated_rows, false, 1, "amount");
+
+    assert_eq!(updates.len(), 2, "the number row and its keyframes row");
+    for (index, refreshed) in &updates {
+        let current = &current_rows[*index];
+        assert_eq!(current.param_name.as_str(), "amount");
+        assert_eq!(refreshed.row_kind, current.row_kind);
+        let expected = updated_rows
+            .iter()
+            .find(|row| is_same_parameter_row(current, row))
+            .expect("the refreshed projection keeps the parameter");
+        assert_eq!(refreshed.label, expected.label);
+        if refreshed.row_kind == "number" {
+            // The keyframes row carries no label of its own.
+            assert_eq!(refreshed.label.as_str(), "Amount");
+        }
+        assert_ne!(
+            refreshed.text_value, current.text_value,
+            "the edited value reaches the live row"
+        );
+        assert_eq!(refreshed.text_value, expected.text_value);
+        assert_eq!(refreshed.number_value, expected.number_value);
+        assert_eq!(refreshed.minimum, expected.minimum);
+        assert_eq!(refreshed.maximum, expected.maximum);
+        assert_eq!(
+            refreshed.keyframe_markers.row_count(),
+            expected.keyframe_markers.row_count()
+        );
+    }
+    // The keyframes row carries the dragged parameter's own markers: the
+    // second keyframe moved from frame 40 to 60, next to the clip end marker.
+    let (marker_index, refreshed_keyframes) = updates
+        .iter()
+        .find(|(index, _)| current_rows[*index].row_kind == "keyframes")
+        .expect("the dragged parameter has a keyframes row");
+    let marker_frames = |markers: &slint::ModelRc<crate::KeyframeMarkerData>| {
+        (0..markers.row_count())
+            .filter_map(|index| markers.row_data(index))
+            .map(|marker| marker.frame)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        marker_frames(&current_rows[*marker_index].keyframe_markers),
+        vec![0, 40, 100]
+    );
+    assert_eq!(
+        marker_frames(&refreshed_keyframes.keyframe_markers),
+        vec![0, 60, 100]
+    );
+
+    // The other effect's number row still carries its own label, and the
+    // kind-only rule this replaced would have rewritten exactly that row.
+    let (size_number_index, size_number) = current_rows
+        .iter()
+        .enumerate()
+        .find(|(_, row)| row.param_name == "size" && row.row_kind == "number")
+        .expect("the first effect's numeric parameter is projected");
+    assert_eq!(size_number.label.as_str(), "Size");
+    assert_eq!(marker_frames(&size_number.keyframe_markers), vec![0, 100]);
+    assert!(
+        updates.iter().all(|(index, _)| *index != size_number_index),
+        "the other effect's rows are never rewritten"
+    );
 }
 
 #[test]

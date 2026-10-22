@@ -31,6 +31,19 @@ export component ObjectSettingsWindow inherits Window {
     in-out property <int> effect-catalog-mode: 0;
     in property <string> selection-key;
     changed selection-key => { root.effect-picker-visible = false; }
+    // Each overlay takes the focus in `init`; hiding it drops that focus and
+    // Qt hands the shortcuts back to the dialog, so refocus the scope that
+    // owns Escape and Delete. The refocus waits for the next event-loop turn:
+    // the overlay subtree is still being torn down (and the scope still reads
+    // as disabled) while the visibility change is being processed.
+    changed preset-save-visible => { if !root.preset-save-visible { restore-shortcuts.start(); } }
+    changed color-picker-visible => { if !root.color-picker-visible { restore-shortcuts.start(); } }
+    changed font-picker-visible => { if !root.font-picker-visible { restore-shortcuts.start(); } }
+    restore-shortcuts := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => { self.stop(); object-settings-shortcuts.focus(); }
+    }
     callback toggle-catalog-favorite(string);
     function close-effect-picker() {
         root.effect-picker-visible = false;
@@ -160,6 +173,16 @@ export component ObjectSettingsWindow inherits Window {
                 Text {
                     text: root.audio-plugin-mode ? @tr("Audio Plugins") : @tr("Object / Effect");
                     color: AppTheme.muted-foreground;
+                }
+                // Audio-plugin discovery runs off the UI thread and can end with
+                // deferred, unavailable, or failed plugins. The status already
+                // carries those counts and the failure reason; showing it here
+                // keeps an empty plugin list from being the only evidence.
+                if root.audio-plugin-mode : Text {
+                    text: root.plugin-scan-status;
+                    color: AppTheme.muted-foreground;
+                    font-size: 0.72rem;
+                    wrap: word-wrap;
                 }
                 ScrollView {
                     vertical-stretch: 1;
@@ -338,7 +361,15 @@ export component ObjectSettingsWindow inherits Window {
         z: 100;
         width: 100%;
         height: 100%;
-        init => { effect-search.focus(); }
+        // Focus one event-loop turn later: focusing while the overlay is being
+        // created re-enters the backend's accessibility borrow (see the preset
+        // overlay below).
+        init => { effect-picker-focus-timer.start(); }
+        effect-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); effect-search.focus(); }
+        }
         key-pressed(event) => {
             if event.text == Key.Escape { root.close-effect-picker(); accept }
             else if event.text == Key.Return { root.add-picker-selection(); accept }
@@ -403,10 +434,34 @@ export component ObjectSettingsWindow inherits Window {
         }
     }
 
-    if root.preset-save-visible : Rectangle {
+    if root.preset-save-visible : preset-save-focus := FocusScope {
         z: 110;
-        background: AppTheme.scrim;
-        TouchArea { clicked => { root.preset-save-visible = false; } }
+        width: 100%;
+        height: 100%;
+        // Qt opens this as a modal dialog with a focused name field, so the
+        // user can type immediately and Escape cancels. The focus has to wait
+        // for the next event-loop turn: focusing while the overlay is being
+        // created re-enters the backend's accessibility borrow and panics
+        // ("RefCell already borrowed") when the dialog opens from a menu.
+        init => { preset-name-focus.start(); }
+        preset-name-focus := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); preset-name-field.focus(); }
+        }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.preset-save-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
+            TouchArea { clicked => { root.preset-save-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 420px);
             height: 190px;
@@ -421,9 +476,10 @@ export component ObjectSettingsWindow inherits Window {
                 spacing: 10px;
                 Text { text: @tr("Save Preset"); font-size: 1.15rem; font-weight: 700; }
                 Text { text: root.preset-effect-name; color: AppTheme.muted-foreground; overflow: elide; }
-                LineEdit {
+                preset-name-field := LineEdit {
                     text <=> root.preset-name;
                     placeholder-text: @tr("Enter preset name...");
+                    accessible-label: @tr("Save Preset");
                     accepted(value) => {
                         if value != "" {
                             root.save-effect-preset(root.preset-effect-index, value);
@@ -446,11 +502,31 @@ export component ObjectSettingsWindow inherits Window {
                 }
             }
         }
+        }
     }
-    if root.color-picker-visible : Rectangle {
+    if root.color-picker-visible : color-picker-focus := FocusScope {
         z: 120;
-        background: AppTheme.scrim;
-        TouchArea { clicked => { root.color-picker-visible = false; } }
+        width: 100%;
+        height: 100%;
+        init => { color-picker-focus-timer.start(); }
+        color-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); color-picker-focus.focus(); }
+        }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.color-picker-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
+            TouchArea { clicked => { root.color-picker-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 460px);
             height: min(parent.height - 48px, 430px);
@@ -547,11 +623,31 @@ export component ObjectSettingsWindow inherits Window {
                 }
             }
         }
+        }
     }
-    if root.font-picker-visible : Rectangle {
+    if root.font-picker-visible : font-picker-focus := FocusScope {
         z: 130;
-        background: AppTheme.scrim;
-        TouchArea { clicked => { root.font-picker-visible = false; } }
+        width: 100%;
+        height: 100%;
+        init => { font-picker-focus-timer.start(); }
+        font-picker-focus-timer := Timer {
+            interval: 1ms;
+            running: false;
+            triggered => { self.stop(); font-filter-field.focus(); }
+        }
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.font-picker-visible = false;
+                accept
+            } else {
+                reject
+            }
+        }
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.scrim;
+            TouchArea { clicked => { root.font-picker-visible = false; } }
         Rectangle {
             width: min(parent.width - 48px, 540px);
             height: min(parent.height - 48px, 540px);
@@ -573,9 +669,10 @@ export component ObjectSettingsWindow inherits Window {
                     color: AppTheme.muted-foreground;
                     overflow: elide;
                 }
-                LineEdit {
+                font-filter-field := LineEdit {
                     text <=> root.font-filter;
                     placeholder-text: @tr("Search font names...");
+                    accessible-label: @tr("Search font names...");
                     edited(value) => { root.filter-fonts(value); }
                 }
                 Button {
@@ -635,6 +732,7 @@ export component ObjectSettingsWindow inherits Window {
                     Button { text: @tr("Close"); clicked => { root.font-picker-visible = false; } }
                 }
             }
+        }
         }
     }
     }

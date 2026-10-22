@@ -273,24 +273,17 @@ impl ObjectSettingsUi {
             if let Some(projection) = projection {
                 let updated_rows = object_settings_rows(&projection);
                 let setting_rows = window.get_setting_rows();
-                for index in 0..setting_rows.row_count() {
-                    let Some(current) = setting_rows.row_data(index) else {
-                        continue;
-                    };
-                    if current.audio_plugin != audio_plugin
-                        || current.effect_index != effect_index as i32
-                        || current.param_name != param_name
-                    {
-                        continue;
-                    }
-                    if let Some(mut updated) = updated_rows
-                        .iter()
-                        .find(|row| row.row_kind == current.row_kind)
-                        .cloned()
-                    {
-                        updated.folded = current.folded;
-                        setting_rows.set_row_data(index, updated);
-                    }
+                let current_rows = (0..setting_rows.row_count())
+                    .filter_map(|index| setting_rows.row_data(index))
+                    .collect::<Vec<_>>();
+                for (index, row) in parameter_row_updates(
+                    &current_rows,
+                    &updated_rows,
+                    audio_plugin,
+                    effect_index as i32,
+                    param_name,
+                ) {
+                    setting_rows.set_row_data(index, row);
                 }
             }
         }
@@ -932,6 +925,60 @@ pub(super) fn sync_object_catalog(
     {
         window.set_effect_picker_current(index as i32);
     }
+}
+
+/// True when both rows describe the same control of the same effect.
+///
+/// A control kind is not unique inside a projection: a clip with two numeric
+/// parameters projects two `number` rows and two `keyframes` rows. Refreshing
+/// a row after a live edit therefore has to compare the owning effect, the
+/// parameter name, and the audio-plugin flag as well.
+/// The live settings rows a parameter preview has to rewrite, with the
+/// refreshed data for each of them.
+///
+/// A row kind alone does not identify a parameter: every numeric control of
+/// every effect projects one `number` row plus one `keyframes` row. Matching
+/// by kind would swap a later effect's label, value, range, and markers into
+/// the first numeric parameter of the stack while the user drags it, so the
+/// match also compares the effect index, the parameter name, and the
+/// audio-plugin flag.
+pub(super) fn parameter_row_updates(
+    current_rows: &[ObjectSettingRowData],
+    updated_rows: &[ObjectSettingRowData],
+    audio_plugin: bool,
+    effect_index: i32,
+    param_name: &str,
+) -> Vec<(usize, ObjectSettingRowData)> {
+    let mut updates = Vec::new();
+    for (index, current) in current_rows.iter().enumerate() {
+        if current.audio_plugin != audio_plugin
+            || current.effect_index != effect_index
+            || current.param_name != param_name
+        {
+            continue;
+        }
+        if let Some(mut updated) = updated_rows
+            .iter()
+            .find(|row| is_same_parameter_row(current, row))
+            .cloned()
+        {
+            // Folding is view state: the refreshed projection always reports
+            // the row unfolded, so keep what the user currently sees.
+            updated.folded = current.folded;
+            updates.push((index, updated));
+        }
+    }
+    updates
+}
+
+pub(super) fn is_same_parameter_row(
+    current: &ObjectSettingRowData,
+    candidate: &ObjectSettingRowData,
+) -> bool {
+    candidate.row_kind == current.row_kind
+        && candidate.effect_index == current.effect_index
+        && candidate.param_name == current.param_name
+        && candidate.audio_plugin == current.audio_plugin
 }
 
 pub(super) fn object_settings_rows(settings: &ObjectSettings) -> Vec<ObjectSettingRowData> {
