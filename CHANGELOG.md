@@ -4,7 +4,21 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0-rc.1] - 2026-10-22
+
 ### Added
+- The default application is the Rust + Slint + wgpu frontend. Nine workspace
+  crates own application commands, project and timeline state, persistence and
+  recovery, preview, rendering, export, audio, Carla hosting, media, and desktop
+  presentation, and `BUILD.py` builds and packages it for Linux, macOS, and
+  Windows MSVC
+- Native WGSL effect and object packages are the extension contract for this
+  frontend: shader resources are validated before use, one pipeline is kept
+  across frames, and the bundled weather objects and color tint effect are
+  written against it and installed through the package manager
+- Object midpoints, a media bin, multi-object property editing that reports each
+  property as uniform, mixed, or absent, and the ripple, roll, slide, and slip
+  trim tools of the batch 4 editing model
 - A block of clips can be saved as a fragment (`.aviqtlfrag`) and inserted into
   another scene or project; the format keeps every clip, effect, and parameter
   exactly as this build stores them, so nothing is translated or dropped, and an
@@ -25,12 +39,72 @@ All notable changes to AviQtl-Plus are documented in this file.
   and a frame
 - Unmapped ExEdit objects and filters are imported as disabled placeholders that
   keep their names, script parameters, track values, and binary data
+- A scene holds up to 512 timeline layers
+- Timeline and clip context menus carry a searchable object, effect, and
+  audio-plugin catalog, effects have favorites and recent selections, shortcuts
+  can be recorded with conflicting bindings rejected, and workspace layouts are
+  saved and restored to a position that is on screen
+- Text previews while it is edited, a numeric parameter can be scrubbed
+  reversibly with one undo step per drag, snapping and fit navigation are exposed
+  in the timeline, the launcher lists recent projects, scene boundaries are drawn
+  as grid lines, and audio monitoring shows waveform feedback
+- Startup lists the graphics adapters it found and refuses a CPU-only adapter with
+  an explanation instead of crashing; the standalone `no-gpu-probes` crates keep
+  the measurements that decision rests on
+- `--validate-gpu` renders a fixed number of frames, reports which backend ran,
+  and fails on a recorded wgpu error, so a packaged build can be smoke tested
+  without a person at the keyboard
 
 ### Changed
+- Qt/C++ and QML become an optional behavior reference. `python3 BUILD.py
+  --frontend qt` still builds it and it still consumes the shared Rust C ABI, but
+  it is no longer compiled into, or shipped with, the application
+- Clipboard, duplicate, split, trim, and layer operations preview and commit
+  through the same Rust planner, so a drag cannot show geometry the commit will
+  not apply
+- A continuous parameter edit is one undo step, Ctrl/Command-click selects a
+  layer's contents instead of a single clip, and menus, effect selection, and
+  window layouts gained the controls recorded in the parity gate
+- Lua plugins run on a sandboxed Lua 5.1 VM instead of LuaJIT, and `load`,
+  `loadstring`, `loadfile`, `dofile`, `print`, `require`, `module`, `io`, `os`,
+  `debug`, `package`, and `ffi` are removed from the plugin globals, so a plugin
+  that used LuaJIT extensions has to be adapted
 - The Windows MSVC jobs key the vcpkg binary cache on a fingerprint of the tools
   that feed vcpkg's ABI hash, and key the Rust caches on `Cargo.lock` and
   `rust-toolchain.toml`, so a runner image update repopulates them instead of
   rebuilding FFmpeg on every run
+
+### Fixed
+- Project saves publish through a unique synchronized temporary file, so an
+  interrupted write cannot leave a half-written project where a complete one was
+- Effect metadata, shader sources, and native package metadata are bounded before
+  they are read, and extracted archive entries are rejected when their names or
+  paths would escape the destination
+- Preview rendering keeps frame results and decode resources bounded and releases
+  inactive decoders instead of accumulating them
+- The live parameter preview refreshes the parameter under the pointer instead of
+  the first numeric parameter in the stack, and repainting a control no longer
+  cancels the binding that a later undo or preset load has to reach
+- Overlays take focus and answer Escape, and the save confirmation answers Return
+  as Qt's dialog does; a right press on a trim handle still opens the clip menu
+- Refused commands, completed edits, and the result of an audio-plugin scan are
+  visible in the status bar instead of being projected into no element
+- Ruler ticks follow the zoom level, a layer header toggles visibility on a left
+  click, and context menus keep the Qt category order and localized names
+- Export clamps its range to the timeline duration instead of planning past it
+- Bundled MOD examples pass the permission checks they declare, and a background
+  audio, discovery, or package worker that disconnects no longer stalls the UI
+- The macOS bundle writes a numeric `CFBundleShortVersionString` and
+  `CFBundleVersion`, so a candidate tag cannot put an invalid version into
+  `Info.plist`
+
+### Removed
+- QML extension packages are rejected by the package validator; the native WGSL
+  package contract replaces them
+- The Slint-only timeline toolbar strip and the hint line under the scene tabs,
+  which had no Qt equivalent, so the ruler now sits directly below the tabs
+- Duplicated native policy paths, unused Qt restoration helpers, and test-only
+  wrappers over business state
 
 ## [0.6.2] - 2026-09-05
 
