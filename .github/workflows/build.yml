@@ -264,5 +264,10 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: dist/*
+          # A candidate tag such as v0.7.0-rc.1 is a prerelease: it must be
+          # flagged as one on the releases page and must not displace the last
+          # stable release as the repository's latest version.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ contains(github.ref_name, '-') && 'false' || 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
