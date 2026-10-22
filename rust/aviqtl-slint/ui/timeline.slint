@@ -920,7 +920,7 @@ export component TimelineWindow inherits Window {
         insert-layers-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { insert-layers-focus.focus(); }
+            triggered => { self.stop(); insert-layers-focus.focus(); }
         }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
@@ -1002,7 +1002,7 @@ export component TimelineWindow inherits Window {
         shift-layers-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { shift-layers-focus.focus(); }
+            triggered => { self.stop(); shift-layers-focus.focus(); }
         }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
@@ -1200,7 +1200,7 @@ export component TimelineWindow inherits Window {
         context-search-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { context-search.focus(); }
+            triggered => { self.stop(); context-search.focus(); }
         }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {
@@ -1358,7 +1358,7 @@ export component TimelineWindow inherits Window {
         object-picker-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { object-picker-focus.focus(); }
+            triggered => { self.stop(); object-picker-focus.focus(); }
         }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {

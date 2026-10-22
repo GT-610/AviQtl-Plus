@@ -69,8 +69,10 @@ misleading or unreachable UI; **Low** = cosmetic or wording only.
   were the first exception, and the same deferral now covers every overlay listed here plus the
   missing-media dialog, shortcut capture, insert/shift layer dialogs, context search, and object
   picker: each starts a 1ms `Timer` in `init` and focuses from its `triggered` callback, which runs
-  after the tree update. Verified: the preset dialog opens with the name field focused and the
-  process stays alive.
+  after the tree update. The handler stops the timer before focusing, because a `Timer` keeps
+  ticking while `running`: the first version let them run forever, so the preset overlay took the
+  focus back about 950 times per second and Tab could not leave the name field. Verified: the
+  preset dialog opens with the name field focused, the timer ticks once, and Tab moves to "取消".
 - The same deferred refocus runs after the preset/color/font overlays close, so the dialog's
   Escape/Delete scope gets the keyboard back instead of being left without a focused item.
 

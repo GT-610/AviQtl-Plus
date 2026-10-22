@@ -289,7 +289,7 @@ export component ExportWindow inherits Window {
         cancel-confirmation-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { cancel-confirmation-focus.focus(); }
+            triggered => { self.stop(); cancel-confirmation-focus.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {
@@ -340,7 +340,7 @@ export component ExportWindow inherits Window {
         result-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { result-focus.focus(); }
+            triggered => { self.stop(); result-focus.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {

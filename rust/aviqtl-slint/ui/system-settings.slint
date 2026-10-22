@@ -631,7 +631,7 @@ export component SystemSettingsWindow inherits Window {
         capture-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { capture.focus(); }
+            triggered => { self.stop(); capture.focus(); }
         }
         capture-key-pressed(event) => {
             if event.text == Key.Escape {

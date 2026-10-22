@@ -351,7 +351,7 @@ export component MainWindow inherits Window {
         missing-media-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { missing-media-focus.focus(); }
+            triggered => { self.stop(); missing-media-focus.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {
@@ -443,7 +443,7 @@ export component MainWindow inherits Window {
         save-confirmation-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { save-confirmation-focus.focus(); }
+            triggered => { self.stop(); save-confirmation-focus.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {

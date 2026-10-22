@@ -42,7 +42,7 @@ export component ObjectSettingsWindow inherits Window {
     restore-shortcuts := Timer {
         interval: 1ms;
         running: false;
-        triggered => { object-settings-shortcuts.focus(); }
+        triggered => { self.stop(); object-settings-shortcuts.focus(); }
     }
     callback toggle-catalog-favorite(string);
     function close-effect-picker() {
@@ -368,7 +368,7 @@ export component ObjectSettingsWindow inherits Window {
         effect-picker-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { effect-search.focus(); }
+            triggered => { self.stop(); effect-search.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape { root.close-effect-picker(); accept }
@@ -447,7 +447,7 @@ export component ObjectSettingsWindow inherits Window {
         preset-name-focus := Timer {
             interval: 1ms;
             running: false;
-            triggered => { preset-name-field.focus(); }
+            triggered => { self.stop(); preset-name-field.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {
@@ -512,7 +512,7 @@ export component ObjectSettingsWindow inherits Window {
         color-picker-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { color-picker-focus.focus(); }
+            triggered => { self.stop(); color-picker-focus.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {
@@ -633,7 +633,7 @@ export component ObjectSettingsWindow inherits Window {
         font-picker-focus-timer := Timer {
             interval: 1ms;
             running: false;
-            triggered => { font-filter-field.focus(); }
+            triggered => { self.stop(); font-filter-field.focus(); }
         }
         key-pressed(event) => {
             if event.text == Key.Escape {
