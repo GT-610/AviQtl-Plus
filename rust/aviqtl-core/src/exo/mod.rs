@@ -145,15 +145,6 @@ impl ExoObject {
     pub fn object_filter(&self) -> Option<&ExoFilter> {
         self.filters.first()
     }
-
-    /// The drawing filter, which ExEdit always stores last when the object has effects.
-    pub fn drawing_filter(&self) -> Option<&ExoFilter> {
-        if self.filters.len() > 1 {
-            self.filters.last()
-        } else {
-            None
-        }
-    }
 }
 
 /// One `[n.k]` filter section, kept as ordered key/value pairs.
@@ -761,7 +752,6 @@ mod tests {
             extra: Vec::new(),
         };
         assert_eq!(object.duration(), 10);
-        assert!(object.drawing_filter().is_none());
         let filter = &object.filters[0];
         assert_eq!(filter.display_name(), "");
         assert!(filter.track(0).is_none());

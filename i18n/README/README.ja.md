@@ -14,7 +14,7 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。現在フロントエンドは同じ方向へ移行中です。**デフォルトビルドはRust + Slint（開発中）**であり、従来のQtフロントエンドは`python3 BUILD.py --frontend qt`で引き続きビルドできます。詳しい経緯は[プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)をご覧ください。
+> AviQtl-Plusは[taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl)のforkであり、上流プロジェクトが**Rust + Slint + wgpu**で再構築された後も**Qt Quick + QRhi + ECS**の開発路線を継続しています。その後フロントエンドも同じ方向へ移行しました。**Rust + Slint + wgpuがデフォルトビルドであり、リリースビルドです**。従来のQtフロントエンドは`python3 BUILD.py --frontend qt`で引き続きビルドでき、挙動の参照用としてのみ残しています。詳しい経緯は[プロジェクトについて](https://aviqtl.gt610.dpdns.org/guide/start-here/about)をご覧ください。
 
 ## [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)とは
 
@@ -30,7 +30,7 @@
 - **AviUtl拡張編集のオブジェクトファイル（.exo）**の読み込み
 - GPUを使った**高速で強力なエフェクト**
 - VST3やLV2等の**音声エフェクト**に対応
-- **LuaJITプラグインシステム**（パッケージ管理、宣言的パラメータ、権限制御付き）
+- **Luaプラグインシステム**（パッケージ管理、宣言的パラメータ、権限制御付き）
 - **Linux**、**Windows**、**macOS**に対応
 
 ## ドキュメント
@@ -64,7 +64,7 @@ AviQtl-Plusは、多くの素晴らしいプロジェクトの上に成り立っ
 | AviQtl-Plus | AGPLv3 | このプロジェクト — Qt Quick + QRhi + ECS から Rust + Slint + wgpu へ移行中 |
 | Carla | GPLv2+ | 音声エフェクト（VST3/LV2等）のホスト |
 | FFmpeg | GPLv2+ | 動画・音声のデコード / エンコード |
-| LuaJIT | MIT | 高速なスクリプトエンジン |
+| LuaJIT | MIT | 旧Qtフロントエンドのスクリプトエンジン |
 | Qt | GPLv3 | 従来フロントエンドのUI/UXフレームワーク |
 | Slint | GPLv3 | デフォルトフロントエンドのUIフレームワーク |
 | Zrythm | AGPLv3 | 音声プラグイン実装の参考 |

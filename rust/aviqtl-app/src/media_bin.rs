@@ -30,20 +30,6 @@ pub struct MediaBinEntry {
     pub out_frame: i32,
 }
 
-impl MediaBinEntry {
-    /// Returns the selected range length, which is what insert and overwrite use as the
-    /// resulting clip duration.
-    pub fn range_frames(&self) -> i32 {
-        (self.out_frame - self.in_frame).max(1)
-    }
-
-    /// Reports whether the entry is currently missing on disk. A missing entry is kept rather
-    /// than removed, so the user can relink it.
-    pub fn is_missing(&self, project_path: Option<&Path>) -> bool {
-        !resolve_path(project_path, &self.path).exists()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaBin {
     entries: Vec<MediaBinEntry>,
@@ -277,11 +263,6 @@ impl MediaBin {
         self.entries.insert(target_index, entry);
         true
     }
-}
-
-/// Reads the bin out of a live timeline state, which is how the workspace exposes it.
-pub fn bin_from_state(state: &TimelineState) -> MediaBin {
-    read_media_bin(&state.snapshot())
 }
 
 fn read_entry(value: &Value) -> Option<MediaBinEntry> {
@@ -560,7 +541,6 @@ mod tests {
         assert_eq!(entry.duration_frames, 240);
         assert_eq!(entry.in_frame, 30);
         assert_eq!(entry.out_frame, 210);
-        assert_eq!(entry.range_frames(), 180);
         assert_eq!(entry.kind, MediaImportKind::Video);
     }
 
@@ -760,13 +740,11 @@ mod tests {
             &plan(&path, MediaImportKind::Image, 30),
             None,
         ));
-        assert!(!bin.entry(id).expect("entry exists").is_missing(None));
+        assert!(resolve_path(None, &bin.entry(id).expect("entry exists").path).exists());
 
         fs::remove_file(&path).expect("fixture removes");
         assert!(
-            bin.entry(id)
-                .expect("a missing entry is kept")
-                .is_missing(None),
+            !resolve_path(None, &bin.entry(id).expect("a missing entry is kept").path).exists(),
             "a vanished file is reported rather than removed"
         );
     }

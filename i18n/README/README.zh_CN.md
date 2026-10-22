@@ -14,7 +14,7 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plus 是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork，在上游项目改用 **Rust + Slint + wgpu** 重建后，继续 **Qt Quick + QRhi + ECS** 开发路线。目前前端正在向同一方向迁移：**默认构建为 Rust + Slint（建设中）**，旧 Qt 前端仍可通过 `python3 BUILD.py --frontend qt` 构建。关于完整来龙去脉，请参见[关于项目](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/about)。
+> AviQtl-Plus 是 [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) 的 fork，在上游项目改用 **Rust + Slint + wgpu** 重建后，继续 **Qt Quick + QRhi + ECS** 开发路线。此后前端也已迁往同一方向：**Rust + Slint + wgpu 既是默认构建，也是发布构建**。旧 Qt 前端仍可通过 `python3 BUILD.py --frontend qt` 构建，仅作为行为参照保留。关于完整来龙去脉，请参见[关于项目](https://aviqtl.gt610.dpdns.org/zh-CN/guide/start-here/about)。
 
 ## 什么是 [AviQtl-Plus](https://github.com/GT-610/AviQtl-Plus)？
 
@@ -30,7 +30,7 @@
 - 可以导入 **AviUtl 扩展编辑物件文件（.exo）**
 - 使用 GPU 实现的**高速强大特效**
 - 支持 VST3、LV2 等**音频特效**
-- **LuaJIT 插件系统**，支持包管理、声明式参数和权限控制
+- **Lua 插件系统**，支持包管理、声明式参数和权限控制
 - 跨平台：**Linux**、**Windows**、**macOS**
 
 ## 文档
@@ -64,7 +64,7 @@ AviQtl-Plus 站在众多优秀项目的肩膀上。
 | AviQtl-Plus | AGPLv3 | 本项目 — 正在从 Qt Quick + QRhi + ECS 向 Rust + Slint + wgpu 迁移 |
 | Carla | GPLv2+ | 音频特效宿主（VST3/LV2等） |
 | FFmpeg | GPLv2+ | 视频/音频编解码 |
-| LuaJIT | MIT | 高性能脚本引擎 |
+| LuaJIT | MIT | 旧 Qt 前端的脚本引擎 |
 | Qt | GPLv3 | 旧前端的 UI/UX 框架 |
 | Slint | GPLv3 | 默认前端的 UI 框架 |
 | Zrythm | AGPLv3 | 音频插件实现参考 |

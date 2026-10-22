@@ -909,6 +909,40 @@ export component TimelineWindow inherits Window {
         }
     }
 
+    // A popup takes the focus for its own field, and Slint leaves the window
+    // without a focused item once the popup is destroyed. `forward-focus` only
+    // reapplies when the window itself is activated, so every editor shortcut
+    // would stay dead after a dialog or the catalog search had been used. Take
+    // the focus back on the next event-loop turn, the same deferral the popups
+    // use when they open, because focusing from a `changed` handler re-enters the
+    // accessibility tree of the backend.
+    shortcut-refocus := Timer {
+        interval: 1ms;
+        running: false;
+        // Another popup can still be up when the deferred tick arrives, and
+        // taking the focus then would pull it out of that popup's field.
+        triggered => {
+            self.stop();
+            if (!root.context-search-visible && !root.insert-layers-visible
+                && !root.shift-layers-visible && !root.object-picker-visible) {
+                timeline-shortcuts.focus();
+            }
+        }
+    }
+
+    changed context-search-visible => {
+        if (!root.context-search-visible) { shortcut-refocus.start(); }
+    }
+    changed insert-layers-visible => {
+        if (!root.insert-layers-visible) { shortcut-refocus.start(); }
+    }
+    changed shift-layers-visible => {
+        if (!root.shift-layers-visible) { shortcut-refocus.start(); }
+    }
+    changed object-picker-visible => {
+        if (!root.object-picker-visible) { shortcut-refocus.start(); }
+    }
+
     if root.insert-layers-visible : insert-layers-focus := FocusScope {
         z: 300;
         width: 100%;

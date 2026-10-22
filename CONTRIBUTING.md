@@ -104,6 +104,42 @@ aviqtl_add_test(
 )
 ```
 
+## Versions and Releases
+
+`rust/Cargo.toml` owns the project version (`[workspace.package] version`); no
+other file may invent one. `BUILD.py` reads it from there, and the release
+workflow rejects a tag that is not exactly `v<version>`.
+
+Versions follow SemVer 2.0.0. A pre-release uses the dotted counter form, so the
+first release candidate of 0.7.0 is version `0.7.0-rc.1` with tag
+`v0.7.0-rc.1`:
+
+- `0.7.0-rc.1`, `0.7.0-rc.2`, … `0.7.0` sort in the order they are built,
+  because SemVer compares dot-separated identifiers and `rc.10` is newer than
+  `rc.9`.
+- `0.7.0-rc1` and `0.7.0-rc-1` are rejected. Each parses as one identifier, so
+  `rc10` sorts before `rc9`, and every tool that expects the counter form has to
+  special-case it.
+
+CMake cannot express a pre-release suffix, so `project(AviQtl VERSION ...)` in
+`CMakeLists.txt` carries the numeric core of the same version (`0.7.0` for
+`0.7.0-rc.1`), and `BUILD.py` writes that numeric core into the macOS bundle
+metadata. `tests/test_build_version.py` fails when the two disagree, when the
+suffix is not `rc.<n>`, or when `CHANGELOG.md` has no section for the workspace
+version, so bump them together.
+
+To prepare a release:
+
+1. Set `[workspace.package] version` in `rust/Cargo.toml` and refresh
+   `rust/Cargo.lock` with `cargo update --workspace --offline`.
+2. Move the `Unreleased` entries of `CHANGELOG.md` into a
+   `## [<version>] - <YYYY-MM-DD>` section and leave `Unreleased` empty.
+3. Match `project(AviQtl VERSION ...)` to the numeric core of the version.
+4. Run the checks listed in [Adding Tests](#adding-tests), then build and smoke
+   test a package with `python3 BUILD.py`.
+5. Tag the validated commit `v<version>`. A tag containing `-` is published as a
+   GitHub pre-release and does not replace the latest stable release.
+
 ## Reporting Issues
 
 Please report bugs via [GitHub Issues](https://github.com/GT-610/AviQtl-Plus/issues).

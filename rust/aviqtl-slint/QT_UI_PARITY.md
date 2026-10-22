@@ -22,6 +22,43 @@ These are acceptance statuses, not percentages of implemented functionality. Mod
 and successful compilation do not promote an entry. Desktop operation is deferred to a separate
 session; see [migration status](../MIGRATION_STATUS.md) for the Qt retirement gates.
 
+## Desktop acceptance, 2026-10-22
+
+One session on macOS 26 with an Apple M5 (Metal) drove the application with real mouse and
+keyboard events and read back the accessibility tree. The record is in
+[the audit](../../audits/2026-10-22-slint-desktop-acceptance.md).
+
+Operated successfully: launcher and recovery window, project creation, the native
+文件/编辑/设置/显示/工具 menus in Qt order with their Qt item set, the searchable timeline
+context catalog, object insertion at the clicked layer and frame, clip selection and drag
+(1 px = 1 frame at 100 % zoom), the clip trim handles, layer left click (visibility toggle plus
+selection), seek by clicking the progress bar, playback to the scene end, text rendering, and the
+save-confirmation overlay with 保存/放弃/取消 including Escape to dismiss it.
+
+Two defects were found and fixed in the same session:
+
+- **Editor shortcuts never matched.** `Ctrl` was compared against the control bit only, and macOS
+  reports the Command key through the meta bit, so ⌘Z, ⌘S, and the rest were unreachable from the
+  in-window path. `Ctrl` now names the accelerator modifier of the platform, and recording on macOS
+  keeps the `Ctrl` spelling.
+- **The window lost the focus after a popup.** Closing the catalog search, a layer dialog, or the
+  object picker left no focused item, so `key-pressed` stopped firing and every editor shortcut
+  went silent. The timeline now takes the focus back on the next event-loop turn.
+
+After the fix, inserting an object from the catalog search and then pressing ⌘Z, ⌘⇧Z, and ⌃Z in the
+timeline window undoes, redoes, and undoes again, and ⌘S opens the save panel. The shortcut rows
+stay `foundation` until Windows and Linux exercise them too.
+
+Not cleared by this session:
+
+- Status messages (`Ready`, `Edit applied`, and the split refusal) are English inside a Chinese
+  interface.
+- The inserted text object's default content renders `テキスト` regardless of interface language.
+- The native menu bar belongs to the preview window, so the menus are still absent while the
+  timeline window holds the focus.
+- Saving and reopening, media import, export, the object settings and package windows, IME, and
+  VoiceOver traversal were not exercised.
+
 | Area | Qt behavior contract | Slint status |
 | --- | --- | --- |
 | Application shell | Launcher without a project; preview as main window; timeline and object settings as distinct F3/F4 windows | foundation |

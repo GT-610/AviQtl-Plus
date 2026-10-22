@@ -386,11 +386,60 @@ pub(super) fn shortcut_matches(value: &str, input: &ShortcutInput) -> bool {
     let Some(pattern) = parse_shortcut(value) else {
         return false;
     };
-    pattern.text == input.text.to_lowercase()
+    shortcut_text_matches(&pattern.text, input)
         && pattern.alt == input.alt
-        && pattern.control == input.control
-        && pattern.meta == input.meta
+        && pattern.control == primary_modifier(input)
+        && pattern.meta == extra_meta_modifier(input)
         && (pattern.ignore_shift || pattern.shift == input.shift)
+}
+
+/// Whether the platform's accelerator modifier is down.
+///
+/// macOS delivers Command through the meta bit; the rest of the platforms use
+/// the control bit. Control itself also counts on macOS so the AviUtl muscle
+/// memory of `Ctrl+Z` keeps working on an Apple keyboard.
+fn primary_modifier(input: &ShortcutInput) -> bool {
+    if cfg!(target_os = "macos") {
+        input.control || input.meta
+    } else {
+        input.control
+    }
+}
+
+fn extra_meta_modifier(input: &ShortcutInput) -> bool {
+    if cfg!(target_os = "macos") {
+        false
+    } else {
+        input.meta
+    }
+}
+
+/// Whether the pressed key answers the recorded key.
+///
+/// The comparison is case-insensitive because the backend already reports Shift
+/// through the modifier bits, and that bit is checked separately.
+fn shortcut_text_matches(pattern_text: &str, input: &ShortcutInput) -> bool {
+    if pattern_text == input.text.to_lowercase() {
+        return true;
+    }
+    // A backend that follows the terminal convention reports the control
+    // character while Control is held, so `^Z` arrives as `\u{1a}` instead of
+    // `z`. Normalize it back to the letter rather than losing the binding.
+    input.control && control_letter(&input.text) == Some(pattern_text)
+}
+
+/// The letter a single-byte ASCII control character stands for, if any.
+fn control_letter(text: &str) -> Option<&'static str> {
+    let mut chars = text.chars();
+    let code = chars.next()? as u32;
+    if chars.next().is_some() || !(1..=26).contains(&code) {
+        return None;
+    }
+    const LETTERS: [&str; 26] = [
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
+        "s", "t", "u", "v", "w", "x", "y", "z",
+    ];
+    LETTERS.get(code as usize - 1).copied()
 }
 
 pub(super) fn native_shortcut(value: &str) -> slint::Keys {
@@ -457,10 +506,9 @@ pub(super) fn record_shortcut(input: ShortcutInput) -> Option<String> {
             .then(|| input.text.to_uppercase())
         })?;
     let mut parts = Vec::new();
-    if input.control {
+    if input.control || (cfg!(target_os = "macos") && input.meta) {
         parts.push("Ctrl".to_owned());
-    }
-    if input.meta {
+    } else if input.meta {
         parts.push("Meta".to_owned());
     }
     if input.alt {
@@ -522,21 +570,13 @@ pub(super) fn parse_shortcut(value: &str) -> Option<ShortcutPattern> {
     };
     for modifier in parts {
         match modifier.to_ascii_lowercase().as_str() {
-            "ctrl" => pattern.control = true,
-            "cmd" | "command" => {
-                if cfg!(target_os = "macos") {
-                    pattern.control = true;
-                } else {
-                    pattern.meta = true;
-                }
-            }
-            "control" => {
-                if cfg!(target_os = "macos") {
-                    pattern.meta = true;
-                } else {
-                    pattern.control = true;
-                }
-            }
+            // "Ctrl" names the accelerator modifier of the platform: Control on
+            // Windows and Linux, Command on macOS. The menu accelerators are
+            // built from the same pattern, so the two paths stay in agreement.
+            "ctrl" | "control" | "cmd" | "command" => pattern.control = true,
+            // macOS reports Command through the meta bit, so a binding recorded
+            // there as "Meta" has to mean the same accelerator.
+            "meta" | "super" if cfg!(target_os = "macos") => pattern.control = true,
             "meta" | "super" => pattern.meta = true,
             "alt" | "option" => pattern.alt = true,
             "shift" => pattern.shift = true,

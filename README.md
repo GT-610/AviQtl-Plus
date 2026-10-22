@@ -14,7 +14,7 @@
 </p>
 
 > [!IMPORTANT]
-> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. The frontend is now migrating in the same direction: **Rust + Slint is the default build** (under construction), while the legacy Qt frontend remains available via `python3 BUILD.py --frontend qt`. See [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about) for the full story.
+> AviQtl-Plus is a fork of [taisho-guy/NeoUtl](https://codeberg.org/taisho-guy/NeoUtl) that continues the **Qt Quick + QRhi + ECS** development path after the upstream project was rebuilt with **Rust + Slint + wgpu**. The frontend has since migrated the same way: **Rust + Slint + wgpu is the default build and the release build**, while the legacy Qt frontend remains available via `python3 BUILD.py --frontend qt` as a behavior reference only. See [About the project](https://aviqtl.gt610.dpdns.org/guide/start-here/about) for the full story.
 
 ## What is AviQtl-Plus?
 
@@ -31,7 +31,7 @@ See [AviUtl Operability Targets](https://aviqtl.gt610.dpdns.org/developer/operab
 - **AviUtl ExEdit object files (.exo)** can be imported, bringing existing AviUtl material into a project
 - **Fast and powerful GPU-accelerated effects**
 - Support for **audio effects** such as VST3 and LV2
-- **LuaJIT plugin system** with package management, declarative parameters, and permission control
+- **Lua plugin system** with package management, declarative parameters, and permission control
 - Cross-platform: **Linux**, **Windows**, **macOS**
 
 > [!NOTE]
@@ -69,7 +69,7 @@ AviQtl-Plus stands on the shoulders of many wonderful projects.
 | AviQtl-Plus | AGPLv3 | This project — migrating from Qt Quick + QRhi + ECS to Rust + Slint + wgpu |
 | Carla | GPLv2+ | Audio effect host (VST3/LV2 etc.) |
 | FFmpeg | GPLv2+ | Video/audio decoding & encoding |
-| LuaJIT | MIT | High-performance script engine |
+| LuaJIT | MIT | Script engine of the legacy Qt frontend |
 | Qt | GPLv3 | UI/UX framework for the legacy frontend |
 | Slint | GPLv3 | UI framework for the default frontend |
 | Zrythm | AGPLv3 | Reference for audio plugin implementation |

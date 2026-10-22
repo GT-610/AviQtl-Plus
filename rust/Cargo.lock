@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-app"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-audio",
  "aviqtl-carla",
@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-audio"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-carla",
  "aviqtl-media",
@@ -633,14 +633,14 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-carla"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "libloading",
 ]
 
 [[package]]
 name = "aviqtl-export"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-audio",
  "aviqtl-media",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-media"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "ffmpeg-the-third",
  "image",
@@ -659,7 +659,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-preview"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-media",
  "aviqtl-render",
@@ -671,7 +671,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-render"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-media",
  "aviqtl-rust-core",
@@ -684,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-rust-core"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "luna-core",
  "semver",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "aviqtl-slint"
-version = "0.6.2"
+version = "0.7.0-rc.1"
 dependencies = [
  "aviqtl-app",
  "aviqtl-audio",

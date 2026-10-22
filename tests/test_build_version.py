@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,9 +14,12 @@ from BUILD import (
     XcodeBuilder,
     determine_target,
     normalize_macos_architecture,
+    numeric_version,
     parse_semver,
     read_project_version,
 )
+
+SOURCE_DIR = Path(__file__).resolve().parent.parent
 
 
 def config_for(source_dir: Path, *, debug=False, offline=False, target="test") -> BuildConfig:
@@ -27,7 +31,7 @@ def config_for(source_dir: Path, *, debug=False, offline=False, target="test") -
         is_debug=debug,
         use_container=False,
         is_offline=offline,
-        version_string="0.6.2",
+        version_string="0.7.0-rc.1",
     )
 
 
@@ -56,6 +60,32 @@ class TestBuildScript(unittest.TestCase):
                 '[workspace]\n[workspace.package]\nversion = "1.2.3-rc.1"\n', encoding="utf-8"
             )
             self.assertEqual(read_project_version(source), "1.2.3-rc.1")
+
+    def test_prerelease_keeps_a_numeric_bundle_version(self):
+        cases = {
+            "0.6.2": "0.6.2",
+            "0.7.0-rc.1": "0.7.0",
+            "1.2.3+build.2": "1.2.3",
+        }
+        for version, expected in cases.items():
+            with self.subTest(version=version):
+                self.assertEqual(numeric_version(version), expected)
+
+    def test_macos_plist_writes_a_numeric_version_for_a_candidate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            contents = source / "AviQtl.app" / "Contents"
+            contents.mkdir(parents=True)
+            config = config_for(source, target="xcode")
+            config.version_string = "0.7.0-rc.1"
+            builder = XcodeBuilder(config, Logger(lambda _message: None, lambda *_args: None))
+            builder.write_info_plist(contents)
+            plist = (contents / "Info.plist").read_text(encoding="utf-8")
+            # macOS accepts only period-separated integers in both version keys, so
+            # a release candidate must not leak its suffix into the bundle metadata.
+            self.assertIn("<key>CFBundleShortVersionString</key><string>0.7.0</string>", plist)
+            self.assertIn("<key>CFBundleVersion</key><string>0.7.0</string>", plist)
+            self.assertNotIn("rc.1", plist)
 
     def test_normalizes_macos_archive_architectures(self):
         for machine, expected in {
@@ -192,6 +222,52 @@ class TestBuildScript(unittest.TestCase):
             self.assertIn("<string>aviqtl-slint</string>", plist)
             self.assertIn("<string>org.aviqtl.AviQtl</string>", plist)
             self.assertNotIn("Qt6", plist)
+
+
+class TestReleaseVersionBaseline(unittest.TestCase):
+    """The checked-in version, tag form, and changelog must agree.
+
+    These read the real tree instead of a fixture: a release tag is rejected by
+    the workflow only when it disagrees with ``rust/Cargo.toml``, so a stale
+    ``CMakeLists.txt`` or a missing changelog section would otherwise ship.
+    """
+
+    def setUp(self):
+        self.version = read_project_version(SOURCE_DIR)
+
+    def test_workspace_version_is_semantic(self):
+        # `parse_semver` raises for anything that is not SemVer, and the shape check
+        # pins the three-part core the release tools and the bundle metadata assume.
+        parse_semver(self.version)
+        self.assertRegex(
+            self.version,
+            r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$",
+        )
+
+    def test_prerelease_uses_the_dotted_counter_form(self):
+        # SemVer compares prerelease identifiers one by one, so `rc.10` is newer
+        # than `rc.9`. `rc10` would sort before `rc9`, and `rc-1` parses as a
+        # single identifier, so neither is accepted.
+        if "-" not in self.version:
+            return
+        prerelease = self.version.split("-", 1)[1].split("+", 1)[0]
+        self.assertRegex(prerelease, r"^rc\.[1-9][0-9]*$")
+
+    def test_cmake_project_version_matches_the_numeric_core(self):
+        text = (SOURCE_DIR / "CMakeLists.txt").read_text(encoding="utf-8")
+        match = re.search(r"^project\(AviQtl VERSION ([0-9.]+)", text, flags=re.MULTILINE)
+        self.assertIsNotNone(match, "project(AviQtl VERSION ...) is missing")
+        self.assertEqual(match.group(1), numeric_version(self.version))
+
+    def test_changelog_documents_the_workspace_version(self):
+        changelog = (SOURCE_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
+        # A dated heading of its own, so a prerelease section cannot satisfy the
+        # check for its numeric core and body text cannot satisfy it either.
+        heading = re.compile(
+            rf"^## \[{re.escape(self.version)}\] - [0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$",
+            flags=re.MULTILINE,
+        )
+        self.assertRegex(changelog, heading)
 
 
 if __name__ == "__main__":
