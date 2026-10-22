@@ -928,21 +928,6 @@ fn trim_control(mut segment: &[u8]) -> &[u8] {
     segment
 }
 
-/// Returns the objects of `file` that would be placed outside the destination scene.
-pub fn out_of_range_objects(file: &ExoFile, document: &ProjectDocument, scene_id: i32) -> usize {
-    let Some(scene) = document.scenes.iter().find(|scene| scene.id == scene_id) else {
-        return 0;
-    };
-    let duration = scene.start.saturating_add(scene.duration);
-    file.objects
-        .iter()
-        .filter(|object| {
-            let start = object.start.saturating_sub(1);
-            start >= duration || object.end < 1
-        })
-        .count()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

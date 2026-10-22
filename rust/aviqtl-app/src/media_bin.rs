@@ -279,11 +279,6 @@ impl MediaBin {
     }
 }
 
-/// Reads the bin out of a live timeline state, which is how the workspace exposes it.
-pub fn bin_from_state(state: &TimelineState) -> MediaBin {
-    read_media_bin(&state.snapshot())
-}
-
 fn read_entry(value: &Value) -> Option<MediaBinEntry> {
     let entry = value.as_object()?;
     let id = entry.get("id")?.as_i64()?;

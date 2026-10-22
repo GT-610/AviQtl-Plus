@@ -460,11 +460,6 @@ fn empty_plan() -> SelectionPlan {
     }
 }
 
-/// The parameter name a control carries, if any. A header control has none.
-pub fn control_param(control: &crate::object_settings::ObjectControl) -> Option<&str> {
-    control.param.as_deref()
-}
-
 /// A convenience for reading the audio plugin documents of a clip, kept here so the two
 /// multi-object paths agree on what an audio clip carries.
 pub fn audio_plugins(clip: &ClipDocument) -> &[AudioPluginDocument] {
