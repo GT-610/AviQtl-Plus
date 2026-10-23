@@ -1,6 +1,6 @@
 //! Background package operations, plugin discovery, and manager presentation.
 
-use crate::localization::localized;
+use crate::localization::{localized, status_line};
 use crate::projection::update_vec_model;
 use crate::{
     PackageData, PackageManagerWindow, PackageRepositoryData, PluginPermissionData,
@@ -209,7 +209,7 @@ pub(super) fn sync_package_manager(window: &PackageManagerWindow, model: &Packag
             .collect(),
     );
     window.set_has_updates(model.has_updates());
-    window.set_status_text(SharedString::from(model.status()));
+    window.set_status_text(status_line(model.status(), model.status_message()));
 }
 
 pub(super) fn sync_plugin_permissions(window: &PluginPermissionWindow, settings: &SettingsStore) {

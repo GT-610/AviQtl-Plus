@@ -22,6 +22,7 @@ pub mod recovery;
 pub mod selection;
 pub mod selection_edit;
 pub mod settings;
+pub mod status;
 pub mod timeline_interaction;
 pub mod transport;
 pub mod workspace;

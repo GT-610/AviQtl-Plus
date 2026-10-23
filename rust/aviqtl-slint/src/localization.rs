@@ -3,6 +3,7 @@
 include!(concat!(env!("OUT_DIR"), "/effect_metadata_translations.rs"));
 
 use aviqtl_app::settings::SettingsStore;
+use aviqtl_app::status::StatusMessage;
 use std::borrow::Cow;
 use std::cell::Cell;
 
@@ -37,6 +38,21 @@ pub(super) fn localized(
         UiLanguage::SimplifiedChinese => simplified_chinese,
         UiLanguage::Japanese => japanese,
     }
+}
+
+/// Renders a status line the application layer composed in the interface's own
+/// language, and falls back to the untranslated text for anything that layer could
+/// not compose - a core error, a path, a file name.
+pub(super) fn status_line(fallback: &str, message: Option<&StatusMessage>) -> slint::SharedString {
+    let Some(message) = message else {
+        return fallback.into();
+    };
+    match current_ui_language() {
+        UiLanguage::English => message.english(),
+        UiLanguage::SimplifiedChinese => message.simplified_chinese(),
+        UiLanguage::Japanese => message.japanese(),
+    }
+    .into()
 }
 
 pub(super) fn current_ui_language() -> UiLanguage {

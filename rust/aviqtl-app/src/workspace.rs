@@ -9,6 +9,8 @@ use crate::preset_store::PresetStore;
 use crate::project_io::{ProjectDefaults, ProjectSession};
 use crate::selection::{ClipSelection, SelectionBox, control_layer_count};
 use crate::selection_edit::{SelectionApplied, SelectionPlan, SelectionProperty, SelectionValue};
+use crate::status::StatusMessage;
+use crate::status_message;
 use crate::timeline_interaction::{TimelineDragRequest, plan_timeline_drag};
 use crate::transport::Transport;
 use aviqtl_rust_core::api::{
@@ -24,6 +26,13 @@ use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+
+/// What an importer brought in, for the message that says it did not fit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ImportedBlock {
+    Fragment,
+    ObjectFile,
+}
 
 const DEFAULT_UNDO_LIMIT: usize = 32;
 const MIN_TIMELINE_VIEW_FRAMES: i32 = 100;
@@ -100,6 +109,9 @@ pub struct WorkspaceModel {
     updating_continuous_edit: bool,
     document_revision: u64,
     status: String,
+    /// The same sentence as `status`, in every language the interface speaks, when
+    /// the workspace composed it. Cleared when the text came from somewhere else.
+    status_message: Option<crate::status::StatusMessage>,
     last_import_report: Option<crate::exo_import::ImportReport>,
     last_fragment_report: Option<crate::fragment::FragmentReport>,
 }
@@ -107,6 +119,9 @@ pub struct WorkspaceModel {
 impl WorkspaceModel {
     pub fn new(project: ProjectSession) -> Self {
         let selected_scene = project.document.scenes.first().map_or(1, |scene| scene.id);
+        // An empty project is not doing anything yet, and says so in the interface's
+        // own language rather than in the source language.
+        let ready = crate::status_message!("Ready", "就绪", "準備完了");
         Self {
             project,
             selected_scene,
@@ -122,7 +137,8 @@ impl WorkspaceModel {
             continuous_edit: None,
             updating_continuous_edit: false,
             document_revision: 0,
-            status: "Ready".to_owned(),
+            status: ready.english().to_owned(),
+            status_message: Some(ready),
             last_import_report: None,
             last_fragment_report: None,
         }
@@ -275,16 +291,24 @@ impl WorkspaceModel {
                 Err(error) => errors.push(error),
             }
         }
-        self.status = match (added, errors.is_empty()) {
-            (0, true) => "No media files were added to the bin".to_owned(),
-            (0, false) => errors.join("; "),
-            (count, true) => format!("Added {count} media file(s) to the bin"),
-            (count, false) => {
-                format!(
-                    "Added {count} media file(s) to the bin; {}",
-                    errors.join("; ")
-                )
-            }
+        match (added, errors.is_empty()) {
+            (0, true) => self.set_status(status_message!(
+                "No media files were added to the bin",
+                "没有媒体文件被添加到媒体库",
+                "メディアビンに追加されたメディアはありません"
+            )),
+            (0, false) => self.set_status_text(errors.join("; ")),
+            (count, true) => self.set_status(status_message!(
+                "Added {count} media file(s) to the bin",
+                "已添加 {count} 个媒体文件到媒体库",
+                "メディア {count} 件をメディアビンに追加しました"
+            )),
+            (count, false) => self.set_status(status_message!(
+                "Added {count} media file(s) to the bin; {}",
+                "已添加 {count} 个媒体文件到媒体库；{}",
+                "メディア {count} 件をメディアビンに追加しました。{}",
+                errors.join("; ")
+            )),
         };
         added
     }
@@ -294,7 +318,11 @@ impl WorkspaceModel {
             bin.remove(entry_id);
         });
         if removed {
-            self.status = "Removed 1 media item from the bin".to_owned();
+            self.set_status(status_message!(
+                "Removed 1 media item from the bin",
+                "已从媒体库移除 1 个媒体项",
+                "メディアビンからメディア 1 件を削除しました"
+            ));
         }
         removed
     }
@@ -311,7 +339,11 @@ impl WorkspaceModel {
             bin.set_range(entry_id, in_frame, out_frame);
         });
         if !changed {
-            self.status = format!("Media item {entry_id} cannot use that range");
+            self.set_status(status_message!(
+                "Media item {entry_id} cannot use that range",
+                "媒体项 {entry_id} 无法使用该范围",
+                "メディア項目 {entry_id} はこの範囲を使用できません"
+            ));
         }
         changed
     }
@@ -346,11 +378,18 @@ impl WorkspaceModel {
         let applied = self.project.state.apply(&transaction).map(|()| transaction);
         match applied {
             Ok(transaction) => {
-                self.finish_timeline_edit(transaction, "Media bin updated");
+                self.finish_timeline_edit(
+                    transaction,
+                    status_message!(
+                        "Media bin updated",
+                        "已更新媒体库",
+                        "メディアビンを更新しました"
+                    ),
+                );
                 true
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -360,7 +399,7 @@ impl WorkspaceModel {
         let plan = match plan_media_relink(&self.project.document, clip_id, path) {
             Ok(plan) => plan,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
@@ -372,7 +411,11 @@ impl WorkspaceModel {
             value: Value::String(plan.path),
             media_duration_seconds: plan.media_duration_seconds,
         }) {
-            self.status = format!("Relinked media to {display_path}");
+            self.set_status(status_message!(
+                "Relinked media to {display_path}",
+                "已将媒体重新链接到 {display_path}",
+                "メディアを {display_path} に再リンクしました"
+            ));
             true
         } else {
             false
@@ -381,6 +424,27 @@ impl WorkspaceModel {
 
     pub fn status(&self) -> &str {
         &self.status
+    }
+
+    /// The status line in every language, when this layer composed it.
+    ///
+    /// `None` means the text came from somewhere this layer cannot translate - an
+    /// error from the core, a path, a name a script chose - and the window shows
+    /// [`status`](Self::status) unchanged.
+    pub fn status_message(&self) -> Option<&crate::status::StatusMessage> {
+        self.status_message.as_ref()
+    }
+
+    /// Records a status line this layer can speak in every interface language.
+    fn set_status(&mut self, message: crate::status::StatusMessage) {
+        self.status = message.english().to_owned();
+        self.status_message = Some(message);
+    }
+
+    /// Records text that has no translation - a core error, a path, a file name.
+    fn set_status_text(&mut self, text: String) {
+        self.status = text;
+        self.status_message = None;
     }
 
     pub fn playhead(&self) -> i32 {
@@ -468,7 +532,11 @@ impl WorkspaceModel {
             .filter(|clip| clip.clip_type == "audio")
             .map(|clip| (clip.id, clip.audio_plugins.len()))
         else {
-            self.status = "Select an audio object before adding a plugin".to_owned();
+            self.set_status(status_message!(
+                "Select an audio object before adding a plugin",
+                "请先选择音频对象再添加插件",
+                "プラグインを追加する前に音声オブジェクトを選択してください"
+            ));
             return false;
         };
         let display_name = addition.display_name;
@@ -478,7 +546,11 @@ impl WorkspaceModel {
             plugin: addition.plugin,
         }) {
             self.effect_selection.click(index, false, false);
-            self.status = format!("Added audio plugin {display_name}");
+            self.set_status(status_message!(
+                "Added audio plugin {display_name}",
+                "已添加音频插件 {display_name}",
+                "オーディオプラグイン {display_name} を追加しました"
+            ));
             true
         } else {
             false
@@ -490,9 +562,11 @@ impl WorkspaceModel {
         if pending > 0
             && (!self.undo.is_empty() || !self.redo.is_empty() || self.continuous_edit.is_some())
         {
-            self.status = format!(
-                "Deferred restoring {pending} audio plugin(s) until the project is reopened"
-            );
+            self.set_status(status_message!(
+                "Deferred restoring {pending} audio plugin(s) until the project is reopened",
+                "已推迟到重新打开项目时恢复 {pending} 个音频插件",
+                "オーディオプラグイン {pending} 件の復元はプロジェクトを開き直すまで延期しました"
+            ));
             return AudioPluginHydration {
                 hydrated: 0,
                 deferred: pending,
@@ -514,7 +588,12 @@ impl WorkspaceModel {
                 self.project.refresh();
                 self.reconcile_after_edit();
                 self.document_revision = self.document_revision.wrapping_add(1);
-                self.status = format!("Restored {} project audio plugin(s)", result.hydrated);
+                self.set_status(status_message!(
+                    "Restored {} project audio plugin(s)",
+                    "已恢复 {} 个项目音频插件",
+                    "プロジェクトのオーディオプラグインを {} 件復元しました",
+                    result.hydrated
+                ));
                 result
             }
             Err(error) => AudioPluginHydration {
@@ -539,7 +618,7 @@ impl WorkspaceModel {
         let permutation = match plan_effect_reorder(length, &[source], target, 0) {
             Ok(permutation) => permutation,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return false;
             }
         };
@@ -551,7 +630,11 @@ impl WorkspaceModel {
             permutation: permutation.clone(),
         }) {
             self.effect_selection.apply_permutation(&permutation);
-            self.status = "Reordered audio plugin".to_owned();
+            self.set_status(status_message!(
+                "Reordered audio plugin",
+                "已重排音频插件",
+                "オーディオプラグインを並べ替えました"
+            ));
             true
         } else {
             false
@@ -580,7 +663,11 @@ impl WorkspaceModel {
                 return false;
             }
         }
-        self.status = format!("Updated {count} audio plugin(s)");
+        self.set_status(status_message!(
+            "Updated {count} audio plugin(s)",
+            "已更新 {count} 个音频插件",
+            "オーディオプラグイン {count} 件を更新しました"
+        ));
         true
     }
 
@@ -641,14 +728,22 @@ impl WorkspaceModel {
         }
         if changed {
             self.effect_selection = next_selection;
-            self.status = format!("Removed {count} audio plugin(s)");
+            self.set_status(status_message!(
+                "Removed {count} audio plugin(s)",
+                "已移除 {count} 个音频插件",
+                "オーディオプラグイン {count} 件を削除しました"
+            ));
         }
         changed
     }
 
     pub fn add_effect(&mut self, catalog: &EffectCatalog, effect_id: &str) -> bool {
         let Some(effect) = catalog.effect_document(effect_id) else {
-            self.status = format!("Effect {effect_id} is not available");
+            self.set_status(status_message!(
+                "Effect {effect_id} is not available",
+                "特效 {effect_id} 不可用",
+                "エフェクト {effect_id} を利用できません"
+            ));
             return false;
         };
         let Some((clip_id, index)) = self
@@ -663,7 +758,11 @@ impl WorkspaceModel {
             insertions: vec![EffectInsertion { index, effect }],
         }) {
             self.effect_selection.click(index, false, false);
-            self.status = format!("Added effect {name}");
+            self.set_status(status_message!(
+                "Added effect {name}",
+                "已添加特效 {name}",
+                "エフェクト {name} を追加しました"
+            ));
             true
         } else {
             false
@@ -690,7 +789,7 @@ impl WorkspaceModel {
             match plan_effect_reorder(length, &indices, target, usize::from(transform_first)) {
                 Ok(permutation) => permutation,
                 Err(error) => {
-                    self.status = error.to_string();
+                    self.set_status_text(error.to_string());
                     return false;
                 }
             };
@@ -702,7 +801,12 @@ impl WorkspaceModel {
             permutation: permutation.clone(),
         }) {
             self.effect_selection.apply_permutation(&permutation);
-            self.status = format!("Reordered {} effect(s)", indices.len());
+            self.set_status(status_message!(
+                "Reordered {} effect(s)",
+                "已重排 {} 个特效",
+                "エフェクト {} 件を並べ替えました",
+                indices.len()
+            ));
             true
         } else {
             false
@@ -731,11 +835,15 @@ impl WorkspaceModel {
         );
         match result {
             Ok(()) => {
-                self.status = format!("Saved preset {name}");
+                self.set_status(status_message!(
+                    "Saved preset {name}",
+                    "已保存预设 {name}",
+                    "プリセット {name} を保存しました"
+                ));
                 true
             }
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 false
             }
         }
@@ -760,14 +868,14 @@ impl WorkspaceModel {
         let preset = match store.load_preset(&effect_id, name) {
             Ok(preset) => preset,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
         let commands = match effect_preset_commands(&clip, effect_index, &preset) {
             Ok(commands) => commands,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
@@ -776,7 +884,12 @@ impl WorkspaceModel {
                 return false;
             }
         }
-        self.status = format!("Loaded preset {}", preset.name);
+        self.set_status(status_message!(
+            "Loaded preset {}",
+            "已载入预设 {}",
+            "プリセット {} を読み込みました",
+            preset.name
+        ));
         true
     }
 
@@ -795,11 +908,15 @@ impl WorkspaceModel {
         };
         match store.delete(&effect_id, name) {
             Ok(()) => {
-                self.status = format!("Deleted preset {name}");
+                self.set_status(status_message!(
+                    "Deleted preset {name}",
+                    "已删除预设 {name}",
+                    "プリセット {name} を削除しました"
+                ));
                 true
             }
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 false
             }
         }
@@ -828,11 +945,15 @@ impl WorkspaceModel {
         );
         match result {
             Ok(()) => {
-                self.status = format!("Saved preset {name}");
+                self.set_status(status_message!(
+                    "Saved preset {name}",
+                    "已保存预设 {name}",
+                    "プリセット {name} を保存しました"
+                ));
                 true
             }
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 false
             }
         }
@@ -861,14 +982,14 @@ impl WorkspaceModel {
         let preset = match store.load_preset(&plugin_id, name) {
             Ok(preset) => preset,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
         let commands = match audio_plugin_preset_commands(&clip, plugin_index, &preset) {
             Ok(commands) => commands,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
@@ -877,7 +998,12 @@ impl WorkspaceModel {
                 return false;
             }
         }
-        self.status = format!("Loaded preset {}", preset.name);
+        self.set_status(status_message!(
+            "Loaded preset {}",
+            "已载入预设 {}",
+            "プリセット {} を読み込みました",
+            preset.name
+        ));
         true
     }
 
@@ -897,11 +1023,15 @@ impl WorkspaceModel {
         };
         match store.delete(&plugin_id, name) {
             Ok(()) => {
-                self.status = format!("Deleted preset {name}");
+                self.set_status(status_message!(
+                    "Deleted preset {name}",
+                    "已删除预设 {name}",
+                    "プリセット {name} を削除しました"
+                ));
                 true
             }
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 false
             }
         }
@@ -928,7 +1058,11 @@ impl WorkspaceModel {
                 return false;
             }
         }
-        self.status = format!("Updated {count} effect(s)");
+        self.set_status(status_message!(
+            "Updated {count} effect(s)",
+            "已更新 {count} 个特效",
+            "エフェクト {count} 件を更新しました"
+        ));
         true
     }
 
@@ -982,7 +1116,11 @@ impl WorkspaceModel {
             effect_indices,
         }) {
             self.effect_selection = next_selection;
-            self.status = format!("Removed {count} effect(s)");
+            self.set_status(status_message!(
+                "Removed {count} effect(s)",
+                "已移除 {count} 个特效",
+                "エフェクト {count} 件を削除しました"
+            ));
             true
         } else {
             false
@@ -1283,7 +1421,11 @@ impl WorkspaceModel {
                 return false;
             }
         }
-        self.status = format!("Enabled keyframes for audio plugin parameter {param_name}");
+        self.set_status(status_message!(
+            "Enabled keyframes for audio plugin parameter {param_name}",
+            "已为音频插件参数 {param_name} 启用关键帧",
+            "オーディオプラグインのパラメータ {param_name} のキーフレームを有効にしました"
+        ));
         true
     }
 
@@ -1599,11 +1741,15 @@ impl WorkspaceModel {
                 self.reconcile_after_edit();
                 self.project.dirty = true;
                 self.document_revision = self.document_revision.wrapping_add(1);
-                self.status = "Project settings applied".to_owned();
+                self.set_status(status_message!(
+                    "Project settings applied",
+                    "已应用项目设置",
+                    "プロジェクト設定を適用しました"
+                ));
                 true
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1630,7 +1776,7 @@ impl WorkspaceModel {
         let scene_id = match self.project.state.reserve_scene_ids(1) {
             Ok(ids) => ids[0],
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return None;
             }
         };
@@ -1664,7 +1810,11 @@ impl WorkspaceModel {
         self.playhead = 0;
         self.transport.pause();
         if self.update_scene_settings(scene_id, input) {
-            self.status = format!("Created scene {name}");
+            self.set_status(status_message!(
+                "Created scene {name}",
+                "已创建场景 {name}",
+                "シーン {name} を作成しました"
+            ));
         }
         Some(scene_id)
     }
@@ -1678,7 +1828,11 @@ impl WorkspaceModel {
             .find(|scene| scene.id == scene_id)
             .cloned()
         else {
-            self.status = format!("Scene #{scene_id} does not exist");
+            self.set_status(status_message!(
+                "Scene #{scene_id} does not exist",
+                "场景 #{scene_id} 不存在",
+                "シーン #{scene_id} は存在しません"
+            ));
             return false;
         };
         let input = normalized_scene_settings(input);
@@ -1697,7 +1851,11 @@ impl WorkspaceModel {
         let name = scene.name.clone();
         if self.execute(TimelineCommand::UpdateScene { scene_id, scene }) {
             self.selected_scene = scene_id;
-            self.status = format!("Updated scene {name}");
+            self.set_status(status_message!(
+                "Updated scene {name}",
+                "已更新场景 {name}",
+                "シーン {name} を更新しました"
+            ));
             true
         } else {
             false
@@ -1713,11 +1871,14 @@ impl WorkspaceModel {
             Ok(transaction)
         }) {
             Ok(transaction) => {
-                self.finish_timeline_edit(transaction, "Edit applied");
+                self.finish_timeline_edit(
+                    transaction,
+                    status_message!("Edit applied", "已应用编辑", "編集を適用しました"),
+                );
                 true
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1739,11 +1900,18 @@ impl WorkspaceModel {
                 Ok(transaction)
             }) {
             Ok(transaction) => {
-                self.finish_timeline_edit(transaction, "Edit group applied");
+                self.finish_timeline_edit(
+                    transaction,
+                    status_message!(
+                        "Edit group applied",
+                        "已应用编辑组",
+                        "編集グループを適用しました"
+                    ),
+                );
                 true
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1795,14 +1963,18 @@ impl WorkspaceModel {
             return false;
         };
         if let Err(error) = self.project.state.undo(&transaction) {
-            self.status = error.to_string();
+            self.set_status_text(error.to_string());
             self.continuous_edit = Some(ContinuousEdit {
                 transaction: Some(transaction),
                 ..edit
             });
             return false;
         }
-        self.refresh_after_history_change("Parameter edit cancelled");
+        self.refresh_after_history_change(status_message!(
+            "Parameter edit cancelled",
+            "已取消参数编辑",
+            "パラメータ編集を取り消しました"
+        ));
         self.project.dirty = edit.dirty_before;
         true
     }
@@ -1833,7 +2005,7 @@ impl WorkspaceModel {
                 true
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1847,12 +2019,12 @@ impl WorkspaceModel {
         match self.project.state.undo(&transaction) {
             Ok(()) => {
                 self.redo.push(transaction);
-                self.refresh_after_history_change("Undo");
+                self.refresh_after_history_change(status_message!("Undo", "撤销", "元に戻す"));
                 true
             }
             Err(error) => {
                 self.undo.push(transaction);
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1867,12 +2039,12 @@ impl WorkspaceModel {
             Ok(()) => {
                 self.undo.push(transaction);
                 self.trim_undo_history();
-                self.refresh_after_history_change("Redo");
+                self.refresh_after_history_change(status_message!("Redo", "重做", "やり直し"));
                 true
             }
             Err(error) => {
                 self.redo.push(transaction);
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -1900,7 +2072,11 @@ impl WorkspaceModel {
     pub fn remove_scene(&mut self, scene_id: i32) -> bool {
         let root_scene = self.project.document.scenes.first().map(|scene| scene.id);
         if self.project.document.scenes.len() <= 1 || root_scene == Some(scene_id) {
-            self.status = "The root scene cannot be removed".to_owned();
+            self.set_status(status_message!(
+                "The root scene cannot be removed",
+                "根场景无法删除",
+                "ルートシーンは削除できません"
+            ));
             return false;
         }
         if !self
@@ -2063,7 +2239,7 @@ impl WorkspaceModel {
         let new_clip_ids = match self.project.state.reserve_clip_ids(clips.len()) {
             Ok(ids) => ids,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return false;
             }
         };
@@ -2098,7 +2274,12 @@ impl WorkspaceModel {
             return false;
         }
         self.clip_clipboard = copied;
-        self.status = format!("Copied {} clip(s)", self.clip_clipboard.len());
+        self.set_status(status_message!(
+            "Copied {} clip(s)",
+            "已复制 {} 个片段",
+            "クリップ {} 件をコピーしました",
+            self.clip_clipboard.len()
+        ));
         true
     }
 
@@ -2117,7 +2298,11 @@ impl WorkspaceModel {
         if self.execute_batch(commands) {
             self.selection.clear();
             self.effect_selection.clear();
-            self.status = format!("Cut {copied_count} clip(s)");
+            self.set_status(status_message!(
+                "Cut {copied_count} clip(s)",
+                "已剪切 {copied_count} 个片段",
+                "クリップ {copied_count} 件を切り取りました"
+            ));
             true
         } else {
             false
@@ -2135,11 +2320,20 @@ impl WorkspaceModel {
 
     pub fn remove_clip(&mut self, clip_id: i32) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         if self.is_clip_locked(&clip) {
-            self.status = format!("Layer {} is locked", clip.layer + 1);
+            self.set_status(status_message!(
+                "Layer {} is locked",
+                "图层 {} 已锁定",
+                "レイヤー {} はロックされています",
+                clip.layer + 1
+            ));
             return false;
         }
         self.execute(TimelineCommand::RemoveClip { clip_id })
@@ -2153,7 +2347,11 @@ impl WorkspaceModel {
         duration: i32,
     ) -> bool {
         if self.find_clip_in_selected_scene(clip_id).is_none() {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         }
         self.execute(TimelineCommand::UpdateClipGeometry {
@@ -2166,21 +2364,34 @@ impl WorkspaceModel {
 
     pub fn split_clip(&mut self, clip_id: i32, frame: i32) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         if self.is_clip_locked(&clip) {
-            self.status = format!("Layer {} is locked", clip.layer + 1);
+            self.set_status(status_message!(
+                "Layer {} is locked",
+                "图层 {} 已锁定",
+                "レイヤー {} はロックされています",
+                clip.layer + 1
+            ));
             return false;
         }
         if frame <= clip.start || frame >= clip.start.saturating_add(clip.duration) {
-            self.status = "Split frame is outside the clip".to_owned();
+            self.set_status(status_message!(
+                "Split frame is outside the clip",
+                "分割帧不在片段内",
+                "分割フレームがクリップの範囲外です"
+            ));
             return false;
         }
         let new_clip_id = match self.project.state.reserve_clip_ids(1) {
             Ok(ids) => ids[0],
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return false;
             }
         };
@@ -2216,23 +2427,39 @@ impl WorkspaceModel {
 
     fn set_clip_midpoint(&mut self, clip_id: i32, midpoint: MidpointOperation) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         if self.is_clip_locked(&clip) {
-            self.status = format!("Layer {} is locked", clip.layer + 1);
+            self.set_status(status_message!(
+                "Layer {} is locked",
+                "图层 {} 已锁定",
+                "レイヤー {} はロックされています",
+                clip.layer + 1
+            ));
             return false;
         }
         let applied = self.execute(TimelineCommand::SetClipMidpoints { clip_id, midpoint });
         if !applied {
-            self.status = match midpoint {
-                MidpointOperation::Add { frame } | MidpointOperation::Remove { frame } => {
-                    format!("Frame {frame} cannot be used as a midpoint")
-                }
+            match midpoint {
+                MidpointOperation::Add { frame } | MidpointOperation::Remove { frame } => self
+                    .set_status(status_message!(
+                        "Frame {frame} cannot be used as a midpoint",
+                        "第 {frame} 帧无法作为中点",
+                        "フレーム {frame} は中点に使用できません"
+                    )),
                 MidpointOperation::Move {
                     old_frame,
                     new_frame,
-                } => format!("Midpoint {old_frame} cannot move to {new_frame}"),
+                } => self.set_status(status_message!(
+                    "Midpoint {old_frame} cannot move to {new_frame}",
+                    "中点 {old_frame} 无法移动到 {new_frame}",
+                    "中点 {old_frame} は {new_frame} に移動できません"
+                )),
             };
         }
         applied
@@ -2243,7 +2470,11 @@ impl WorkspaceModel {
             return false;
         };
         self.clip_clipboard = vec![clip];
-        self.status = "Copied 1 clip(s)".to_owned();
+        self.set_status(status_message!(
+            "Copied 1 clip(s)",
+            "已复制 1 个片段",
+            "クリップ 1 件をコピーしました"
+        ));
         true
     }
 
@@ -2252,13 +2483,26 @@ impl WorkspaceModel {
             return false;
         };
         if self.is_clip_locked(&clip) {
-            self.status = format!("Layer {} is locked", clip.layer + 1);
+            self.set_status(status_message!(
+                "Layer {} is locked",
+                "图层 {} 已锁定",
+                "レイヤー {} はロックされています",
+                clip.layer + 1
+            ));
             return false;
         }
         self.clip_clipboard = vec![clip];
-        self.status = "Copied 1 clip(s)".to_owned();
+        self.set_status(status_message!(
+            "Copied 1 clip(s)",
+            "已复制 1 个片段",
+            "クリップ 1 件をコピーしました"
+        ));
         if self.execute(TimelineCommand::RemoveClip { clip_id }) {
-            self.status = "Cut 1 clip(s)".to_owned();
+            self.set_status(status_message!(
+                "Cut 1 clip(s)",
+                "已剪切 1 个片段",
+                "クリップ 1 件を切り取りました"
+            ));
             true
         } else {
             false
@@ -2272,11 +2516,19 @@ impl WorkspaceModel {
         effect_id: &str,
     ) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         let Some(effect) = catalog.effect_document(effect_id) else {
-            self.status = format!("Effect {effect_id} is not available");
+            self.set_status(status_message!(
+                "Effect {effect_id} is not available",
+                "特效 {effect_id} 不可用",
+                "エフェクト {effect_id} を利用できません"
+            ));
             return false;
         };
         let name = effect.name.clone();
@@ -2287,7 +2539,11 @@ impl WorkspaceModel {
                 effect,
             }],
         }) {
-            self.status = format!("Added effect {name}");
+            self.set_status(status_message!(
+                "Added effect {name}",
+                "已添加特效 {name}",
+                "エフェクト {name} を追加しました"
+            ));
             true
         } else {
             false
@@ -2296,7 +2552,11 @@ impl WorkspaceModel {
 
     pub fn remove_effect_from_clip(&mut self, clip_id: i32, effect_index: usize) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         let transform_first = clip
@@ -2304,7 +2564,11 @@ impl WorkspaceModel {
             .first()
             .is_some_and(|effect| effect.id == "transform");
         if effect_index >= clip.effects.len() || (transform_first && effect_index == 0) {
-            self.status = format!("Effect {effect_index} does not exist");
+            self.set_status(status_message!(
+                "Effect {effect_index} does not exist",
+                "特效 {effect_index} 不存在",
+                "エフェクト {effect_index} は存在しません"
+            ));
             return false;
         }
         self.execute(TimelineCommand::RemoveEffects {
@@ -2321,15 +2585,27 @@ impl WorkspaceModel {
         value: Value,
     ) -> bool {
         let Some(clip) = self.find_clip_in_selected_scene(clip_id) else {
-            self.status = format!("Clip {clip_id} does not exist");
+            self.set_status(status_message!(
+                "Clip {clip_id} does not exist",
+                "片段 {clip_id} 不存在",
+                "クリップ {clip_id} は存在しません"
+            ));
             return false;
         };
         let Some(effect) = clip.effects.get(effect_index) else {
-            self.status = format!("Effect {effect_index} does not exist");
+            self.set_status(status_message!(
+                "Effect {effect_index} does not exist",
+                "特效 {effect_index} 不存在",
+                "エフェクト {effect_index} は存在しません"
+            ));
             return false;
         };
         let Some(original) = effect.params.get(param_name) else {
-            self.status = format!("Parameter {param_name} does not exist");
+            self.set_status(status_message!(
+                "Parameter {param_name} does not exist",
+                "参数 {param_name} 不存在",
+                "パラメータ {param_name} は存在しません"
+            ));
             return false;
         };
         let value = replace_value_payload(original, value);
@@ -2446,14 +2722,20 @@ impl WorkspaceModel {
     /// whole edit model shares.
     fn apply_selection_plan(&mut self, plan: SelectionPlan) -> Option<SelectionApplied> {
         if plan.is_no_op() {
-            self.status = if plan.selected_objects == 0 {
-                "No object is selected".to_owned()
+            if plan.selected_objects == 0 {
+                self.set_status(status_message!(
+                    "No object is selected",
+                    "未选择对象",
+                    "オブジェクトが選択されていません"
+                ));
             } else {
-                format!(
+                self.set_status(status_message!(
                     "No editable object for this parameter ({} selected)",
+                    "该参数没有可编辑的对象（已选择 {} 个）",
+                    "このパラメータに編集できるオブジェクトがありません（{} 個選択）",
                     plan.selected_objects
-                )
-            };
+                ));
+            }
             return None;
         }
         let applied = SelectionApplied {
@@ -2467,11 +2749,19 @@ impl WorkspaceModel {
         if !self.execute_batch(plan.commands) {
             return None;
         }
-        self.status = if skipped == 0 {
-            format!("Applied to {edited} object(s)")
+        if skipped == 0 {
+            self.set_status(status_message!(
+                "Applied to {edited} object(s)",
+                "已应用到 {edited} 个对象",
+                "オブジェクト {edited} 件に適用しました"
+            ));
         } else {
-            format!("Applied to {edited} object(s), skipped {skipped}")
-        };
+            self.set_status(status_message!(
+                "Applied to {edited} object(s), skipped {skipped}",
+                "已应用到 {edited} 个对象，跳过 {skipped} 个",
+                "オブジェクト {edited} 件に適用、{skipped} 件をスキップしました"
+            ));
+        }
         Some(applied)
     }
 
@@ -2495,12 +2785,16 @@ impl WorkspaceModel {
         ) {
             Ok(planned) => planned,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return None;
             }
         };
         if geometry.iter().any(|entry| entry.layer >= maximum_layers) {
-            self.status = format!("Pasted clips exceed the {maximum_layers}-layer timeline");
+            self.set_status(status_message!(
+                "Pasted clips exceed the {maximum_layers}-layer timeline",
+                "粘贴的片段超出了 {maximum_layers} 层的时间线",
+                "貼り付けたクリップが {maximum_layers} レイヤーのタイムラインを超えています"
+            ));
             return None;
         }
         let ids = match self
@@ -2510,7 +2804,7 @@ impl WorkspaceModel {
         {
             Ok(ids) => ids,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return None;
             }
         };
@@ -2532,7 +2826,12 @@ impl WorkspaceModel {
         if !self.execute_batch(commands) {
             return None;
         }
-        self.status = format!("Pasted {} clip(s)", self.clip_clipboard.len());
+        self.set_status(status_message!(
+            "Pasted {} clip(s)",
+            "已粘贴 {} 个片段",
+            "クリップ {} 件を貼り付けました",
+            self.clip_clipboard.len()
+        ));
         Some((
             safe_frame.saturating_add(duration),
             requested_layer.clamp(0, maximum_layers - 1),
@@ -2562,14 +2861,22 @@ impl WorkspaceModel {
             .find(object_id)
             .filter(|entry| entry.kind == "object")
         else {
-            self.status = format!("Object {object_id} is not available");
+            self.set_status(status_message!(
+                "Object {object_id} is not available",
+                "对象 {object_id} 不可用",
+                "オブジェクト {object_id} を利用できません"
+            ));
             return false;
         };
         let transform = (object.id != "audio")
             .then(|| catalog.find("transform"))
             .flatten();
         if object.id != "audio" && transform.is_none() {
-            self.status = "Standard drawing effect is not available".to_owned();
+            self.set_status(status_message!(
+                "Standard drawing effect is not available",
+                "标准绘图特效不可用",
+                "標準描画エフェクトを利用できません"
+            ));
             return false;
         }
         let layer = target_layer.clamp(0, MAX_TIMELINE_LAYER);
@@ -2577,7 +2884,12 @@ impl WorkspaceModel {
             .selected_scene_document()
             .is_some_and(|scene| scene.locked_layers.contains(&layer))
         {
-            self.status = format!("Layer {} is locked", layer + 1);
+            self.set_status(status_message!(
+                "Layer {} is locked",
+                "图层 {} 已锁定",
+                "レイヤー {} はロックされています",
+                layer + 1
+            ));
             return false;
         }
         let duration = default_duration_frames.max(1);
@@ -2591,14 +2903,14 @@ impl WorkspaceModel {
         ) {
             Ok(start) => start,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return false;
             }
         };
         let clip_id = match self.project.state.reserve_clip_ids(1) {
             Ok(ids) => ids[0],
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return false;
             }
         };
@@ -2626,7 +2938,12 @@ impl WorkspaceModel {
         }
         self.selection.replace([clip_id]);
         self.reconcile_effect_selection();
-        self.status = format!("Added object {}", object.name);
+        self.set_status(status_message!(
+            "Added object {}",
+            "已添加对象 {}",
+            "オブジェクト {} を追加しました",
+            object.name
+        ));
         true
     }
 
@@ -2651,7 +2968,11 @@ impl WorkspaceModel {
     ) -> Option<(i32, i32)> {
         self.last_import_report = None;
         let Some(scene) = self.selected_scene_document().cloned() else {
-            self.status = "No scene is selected".to_owned();
+            self.set_status(status_message!(
+                "No scene is selected",
+                "未选择场景",
+                "シーンが選択されていません"
+            ));
             return None;
         };
         let ids = match self
@@ -2661,7 +2982,7 @@ impl WorkspaceModel {
         {
             Ok(ids) => ids,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return None;
             }
         };
@@ -2674,21 +2995,28 @@ impl WorkspaceModel {
             placement,
         );
         if outcome.clips.is_empty() {
-            self.status = format!(
-                "Nothing to import: {}",
-                if outcome.report.notes.is_empty() {
-                    "the file has no objects".to_owned()
-                } else {
+            if outcome.report.notes.is_empty() {
+                self.set_status(status_message!(
+                    "Nothing to import: the file has no objects",
+                    "没有可导入的内容：文件不含对象",
+                    "インポートする内容がありません：ファイルにオブジェクトがありません"
+                ));
+            } else {
+                self.set_status_text(format!(
+                    "Nothing to import: {}",
                     outcome.report.notes.join("; ")
-                }
-            );
+                ));
+            }
             return None;
         }
         if let Some(layer) = crate::fragment::overlapping_layer(&outcome.clips) {
             // The same folding a fragment can suffer: a file authored on more layers than this
             // scene has puts two of its objects on one layer and one frame.
-            self.status =
-                Self::layer_overflow_status("object file", placement.maximum_layers, layer);
+            self.set_status(Self::layer_overflow_status(
+                ImportedBlock::ObjectFile,
+                placement.maximum_layers,
+                layer,
+            ));
             return None;
         }
         let summary = outcome.report.summary();
@@ -2700,9 +3028,19 @@ impl WorkspaceModel {
     /// The message shown when an import does not fit the scene's layer stack.
     ///
     /// `layer` is zero-based, as clips store it; the message speaks to the user, so it is one-based.
-    fn layer_overflow_status(subject: &str, maximum_layers: i32, layer: i32) -> String {
-        format!(
-            "The {subject} uses more layers than this scene has ({}), so its clips would overlap on layer {}. Raise the layer count and try again.",
+    fn layer_overflow_status(
+        block: ImportedBlock,
+        maximum_layers: i32,
+        layer: i32,
+    ) -> StatusMessage {
+        let (english, simplified_chinese, japanese) = match block {
+            ImportedBlock::Fragment => ("fragment", "片段文件", "フラグメント"),
+            ImportedBlock::ObjectFile => ("object file", "物件文件", "オブジェクトファイル"),
+        };
+        status_message!(
+            "The {english} uses more layers than this scene has ({}), so its clips would overlap on layer {}. Raise the layer count and try again.",
+            "该{simplified_chinese}使用的图层数超过本场景的 {} 层，其片段会在图层 {} 上重叠。请提高图层数后重试。",
+            "この{japanese}はこのシーンのレイヤー数（{}）を超えているため、レイヤー {} でクリップが重なります。レイヤー数を増やしてから再試行してください。",
             maximum_layers.clamp(1, 512),
             layer.saturating_add(1)
         )
@@ -2748,7 +3086,7 @@ impl WorkspaceModel {
         }
         self.selection.replace(imported_ids);
         self.reconcile_effect_selection();
-        self.status = summary;
+        self.set_status_text(summary);
         Some((next_frame, next_layer))
     }
 
@@ -2807,17 +3145,25 @@ impl WorkspaceModel {
     ) -> Option<(i32, i32)> {
         self.last_fragment_report = None;
         let Some(scene) = self.selected_scene_document().cloned() else {
-            self.status = "No scene is selected".to_owned();
+            self.set_status(status_message!(
+                "No scene is selected",
+                "未选择场景",
+                "シーンが選択されていません"
+            ));
             return None;
         };
         if fragment.clips.is_empty() {
-            self.status = "Nothing to import: the fragment has no clips".to_owned();
+            self.set_status(status_message!(
+                "Nothing to import: the fragment has no clips",
+                "没有可导入的内容：片段文件不含片段",
+                "インポートする内容がありません：フラグメントにクリップがありません"
+            ));
             return None;
         }
         let ids = match self.project.state.reserve_clip_ids(fragment.clips.len()) {
             Ok(ids) => ids,
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 return None;
             }
         };
@@ -2832,7 +3178,11 @@ impl WorkspaceModel {
             // Clamping the fragment's layers onto this scene folds clips onto one another.
             // Importing that would put two objects on a layer and a frame, which the timeline
             // cannot show and the renderer would resolve by stacking order.
-            self.status = Self::layer_overflow_status("fragment", placement.maximum_layers, layer);
+            self.set_status(Self::layer_overflow_status(
+                ImportedBlock::Fragment,
+                placement.maximum_layers,
+                layer,
+            ));
             return None;
         }
         let summary = report.summary();
@@ -2940,11 +3290,24 @@ impl WorkspaceModel {
                 Err(error) => errors.push(error),
             }
         }
-        self.status = match (imported, errors.is_empty()) {
-            (0, true) => "No media files were dropped".to_owned(),
-            (0, false) => errors.join("; "),
-            (count, true) => format!("Imported {count} media file(s)"),
-            (count, false) => format!("Imported {count} media file(s); {}", errors.join("; ")),
+        match (imported, errors.is_empty()) {
+            (0, true) => self.set_status(status_message!(
+                "No media files were dropped",
+                "没有媒体文件被拖入",
+                "メディアファイルがドロップされませんでした"
+            )),
+            (0, false) => self.set_status_text(errors.join("; ")),
+            (count, true) => self.set_status(status_message!(
+                "Imported {count} media file(s)",
+                "已导入 {count} 个媒体文件",
+                "メディア {count} 件をインポートしました"
+            )),
+            (count, false) => self.set_status(status_message!(
+                "Imported {count} media file(s); {}",
+                "已导入 {count} 个媒体文件；{}",
+                "メディア {count} 件をインポートしました。{}",
+                errors.join("; ")
+            )),
         };
         (imported > 0).then_some((frame, layer))
     }
@@ -3120,7 +3483,7 @@ impl WorkspaceModel {
         ) {
             Ok(updates) => self.execute_geometry_updates(updates),
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -3142,7 +3505,7 @@ impl WorkspaceModel {
         let plan = match self.preview_timeline_drag(request) {
             Ok(plan) => plan,
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 return false;
             }
         };
@@ -3180,7 +3543,7 @@ impl WorkspaceModel {
         match self.preview_ripple_trim(clip_id, edge, delta_frames, minimum_duration_frames) {
             Ok(updates) => self.execute_geometry_updates(updates),
             Err(error) => {
-                self.status = error;
+                self.set_status_text(error);
                 false
             }
         }
@@ -3205,7 +3568,7 @@ impl WorkspaceModel {
         ) {
             Ok(updates) => self.execute_geometry_updates(updates),
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -3222,7 +3585,7 @@ impl WorkspaceModel {
         ) {
             Ok(updates) => self.execute_geometry_updates(updates),
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -3326,11 +3689,15 @@ impl WorkspaceModel {
                 self.execute_geometry_updates(updates)
             }
             Ok(_) => {
-                self.status = "Layer insertion exceeds the configured timeline".to_owned();
+                self.set_status(status_message!(
+                    "Layer insertion exceeds the configured timeline",
+                    "插入的图层数超出时间线设置",
+                    "挿入するレイヤー数がタイムライン設定を超えています"
+                ));
                 false
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -3358,11 +3725,15 @@ impl WorkspaceModel {
                 self.execute_geometry_updates(updates)
             }
             Ok(_) => {
-                self.status = "Layer shift exceeds the configured timeline".to_owned();
+                self.set_status(status_message!(
+                    "Layer shift exceeds the configured timeline",
+                    "移动的图层数超出时间线设置",
+                    "移動するレイヤー数がタイムライン設定を超えています"
+                ));
                 false
             }
             Err(error) => {
-                self.status = error.to_string();
+                self.set_status_text(error.to_string());
                 false
             }
         }
@@ -3445,7 +3816,7 @@ impl WorkspaceModel {
         }
     }
 
-    fn finish_timeline_edit(&mut self, transaction: TimelineTransaction, status: &str) {
+    fn finish_timeline_edit(&mut self, transaction: TimelineTransaction, status: StatusMessage) {
         if self.updating_continuous_edit {
             let edit = self
                 .continuous_edit
@@ -3465,15 +3836,15 @@ impl WorkspaceModel {
         self.reconcile_after_edit();
         self.project.dirty = true;
         self.document_revision = self.document_revision.wrapping_add(1);
-        self.status = status.to_owned();
+        self.set_status(status);
     }
 
-    fn refresh_after_history_change(&mut self, status: &str) {
+    fn refresh_after_history_change(&mut self, status: StatusMessage) {
         self.project.refresh();
         self.reconcile_after_edit();
         self.project.dirty = true;
         self.document_revision = self.document_revision.wrapping_add(1);
-        self.status = status.to_owned();
+        self.set_status(status);
     }
 
     fn reconcile_after_edit(&mut self) {

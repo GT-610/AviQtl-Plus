@@ -526,9 +526,27 @@ impl LifecycleUi {
             return;
         }
         let status = if report.selection_only {
-            format!("Exported {} selected clip(s) to a fragment", report.clips)
+            format!(
+                "{} {} {}",
+                localized("Exported", "已导出", "書き出しました："),
+                report.clips,
+                localized(
+                    "selected clip(s) to a fragment",
+                    "个选中的片段到片段文件",
+                    "件の選択クリップをフラグメントへ"
+                )
+            )
         } else {
-            format!("Exported {} clip(s) to a fragment", report.clips)
+            format!(
+                "{} {} {}",
+                localized("Exported", "已导出", "書き出しました："),
+                report.clips,
+                localized(
+                    "clip(s) to a fragment",
+                    "个片段到片段文件",
+                    "件のクリップをフラグメントへ"
+                )
+            )
         };
         if let Some(main) = self.main.upgrade() {
             main.set_status_text(status.as_str().into());

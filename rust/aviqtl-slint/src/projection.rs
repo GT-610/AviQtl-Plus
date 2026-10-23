@@ -1,6 +1,6 @@
 //! Shared stable-model updates and project/transport projection.
 
-use crate::localization::localized_effect_metadata;
+use crate::localization::{localized_effect_metadata, status_line};
 use crate::object_settings::finite_f32;
 use crate::{
     LayerData, MainWindow, MissingMediaData, ProjectTabData, SceneTabData, TimelineClipData,
@@ -189,7 +189,7 @@ pub(super) fn sync_transport(
         .clamp(10.0, 400.0) as i32;
     main.set_playback_speed_percent(speed_percent);
     main.set_playback_speed_multiplier(SharedString::from(speed_multiplier_text(speed_percent)));
-    main.set_status_text(SharedString::from(workspace.status()));
+    main.set_status_text(status_line(workspace.status(), workspace.status_message()));
     main.set_frame_counter_text(SharedString::from(frame_counter_text(
         workspace.playhead(),
         duration,

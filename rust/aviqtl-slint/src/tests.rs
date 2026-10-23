@@ -1406,3 +1406,34 @@ fn a_recovery_failure_reaches_the_status_line_once_per_distinct_failure() {
         "the extra failures are counted: {text}"
     );
 }
+
+#[test]
+fn the_status_bar_speaks_the_interface_language() {
+    use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage, status_line};
+
+    let message = aviqtl_app::status_message!(
+        "Layer {} is locked",
+        "图层 {} 已锁定",
+        "レイヤー {} はロックされています",
+        3
+    );
+    let rendered = |language: UiLanguage| {
+        CURRENT_UI_LANGUAGE.with(|current| current.set(language));
+        status_line("unused", Some(&message)).to_string()
+    };
+
+    assert_eq!(rendered(UiLanguage::English), "Layer 3 is locked");
+    assert_eq!(rendered(UiLanguage::SimplifiedChinese), "图层 3 已锁定");
+    assert_eq!(
+        rendered(UiLanguage::Japanese),
+        "レイヤー {} はロックされています".replace("{}", "3")
+    );
+    // Text the application layer could not compose - a core error, a path - is
+    // shown as it arrived rather than dropped.
+    assert_eq!(
+        status_line("Operation not permitted", None),
+        "Operation not permitted"
+    );
+
+    CURRENT_UI_LANGUAGE.with(|current| current.set(UiLanguage::English));
+}
