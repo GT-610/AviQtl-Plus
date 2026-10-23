@@ -11,6 +11,11 @@ All notable changes to AviQtl-Plus are documented in this file.
   instead of both being rejected as unknown arguments
 
 ### Fixed
+- An object whose `transform` effect omits a parameter - `scale`, `opacity`, a
+  rotation - keeps AviUtl's value for it instead of falling to zero. A transform
+  that carried only its offsets used to draw the object at scale 0, so a project
+  made only of shapes and generated objects previewed and exported a flat frame,
+  and an export looked broken until some video or image happened to fill the frame
 - The menu bar belongs to the focused window, so the timeline window now declares
   the same File/Edit/Settings/View/Tools bar as the preview window. Previously the
   menus disappeared while the timeline was key, which is exactly when the editor is
