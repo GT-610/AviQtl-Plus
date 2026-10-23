@@ -4,6 +4,26 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- The menu bar belongs to the focused window, so the timeline window now declares
+  the same File/Edit/Settings/View/Tools bar as the preview window. Previously the
+  menus disappeared while the timeline was key, which is exactly when the editor is
+  being used. Every item runs the command the preview window already owns, the
+  accelerators step aside while a popup holds a text field, and the project items
+  grey out with the same conditions on both windows
+- The status line speaks the interface language. A status is one sentence in
+  English, Simplified Chinese, and Japanese, composed next to the command that
+  produces it instead of in the window that shows it, so `Ready`, `Edit applied`,
+  the split refusal, and 71 further sentences no longer appear in English inside
+  a translated interface. Text that comes from elsewhere, such as an error from the
+  core, is still reported unchanged
+- A newly inserted text object starts with contents in the interface language
+  instead of AviUtl's Japanese `テキスト`; the object metadata keeps AviUtl's
+  default, which a script insert and a project opened from AviUtl still use
+- A recovery snapshot that stops being written is reported in the status bar once
+  per distinct failure instead of only in a window that is not on screen while a
+  project is open
+
 ## [0.7.0-rc.1] - 2026-10-22
 
 ### Added
