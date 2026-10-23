@@ -4,6 +4,12 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- The application takes a project path on the command line, so a file manager, a
+  shell, or a `open`/`xdg-open` hand-off lands on the project instead of on an
+  empty launcher. `--help` prints the options and `--version` prints the version
+  instead of both being rejected as unknown arguments
+
 ### Fixed
 - The menu bar belongs to the focused window, so the timeline window now declares
   the same File/Edit/Settings/View/Tools bar as the preview window. Previously the

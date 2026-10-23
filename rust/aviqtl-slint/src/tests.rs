@@ -1437,3 +1437,48 @@ fn the_status_bar_speaks_the_interface_language() {
 
     CURRENT_UI_LANGUAGE.with(|current| current.set(UiLanguage::English));
 }
+
+#[test]
+fn the_command_line_opens_a_project_and_explains_itself() {
+    use crate::gpu::{ParsedLaunch, parse_launch_args};
+
+    let parse =
+        |arguments: &[&str]| parse_launch_args(arguments.iter().map(|value| value.to_string()));
+
+    // A file manager launches the bundle with the project as the only argument.
+    let ParsedLaunch::Run(options) = parse(&["/tmp/demo.aviqtl"]).expect("a path parses") else {
+        panic!("a path should run the application");
+    };
+    assert_eq!(
+        options.project_path.as_deref(),
+        Some(std::path::Path::new("/tmp/demo.aviqtl"))
+    );
+    assert_eq!(options.validation_frames, None);
+
+    // --help and --version print instead of launching.
+    let ParsedLaunch::Help(help) = parse(&["--help"]).expect("--help parses") else {
+        panic!("--help should not launch");
+    };
+    assert!(help.contains("Usage:"), "{help}");
+    assert!(help.contains("--validate-gpu"), "{help}");
+    let ParsedLaunch::Help(version) = parse(&["--version"]).expect("--version parses") else {
+        panic!("--version should not launch");
+    };
+    assert!(version.contains(env!("CARGO_PKG_VERSION")), "{version}");
+
+    // The validation gate keeps working, and two projects are refused rather than
+    // one of them being silently dropped.
+    let ParsedLaunch::Run(options) = parse(&["--validate-gpu", "--frames", "30"]).expect("parses")
+    else {
+        panic!("the gate runs the application");
+    };
+    assert_eq!(options.validation_frames, Some(30));
+    let error = parse(&["/tmp/a.aviqtl", "/tmp/b.aviqtl"]).expect_err("two projects are refused");
+    assert!(error.contains("only one project"), "{error}");
+    let error = parse(&["--nope"]).expect_err("an unknown option is refused");
+    assert!(error.contains("unknown argument: --nope"), "{error}");
+    assert!(
+        error.contains("Usage:"),
+        "the refusal repeats the usage: {error}"
+    );
+}

@@ -30,8 +30,9 @@ use crate::export::{
     update_export,
 };
 use crate::gpu::{
-    AppGpu, GpuValidation, LaunchOptions, VALIDATION_PROJECT, WindowKind, describe_adapters,
-    has_gpu_backed_adapter, install_render_probe, missing_gpu_message, parse_launch_options,
+    AppGpu, GpuValidation, LaunchOptions, ParsedLaunch, VALIDATION_PROJECT, WindowKind,
+    describe_adapters, has_gpu_backed_adapter, install_render_probe, missing_gpu_message,
+    parse_launch_options,
 };
 use crate::lifecycle::{
     LifecycleUi, WindowRefs, recovery_failure_status, sync_launcher, sync_recovery_window,
@@ -76,7 +77,16 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let LaunchOptions { validation_frames } = parse_launch_options()?;
+    let LaunchOptions {
+        validation_frames,
+        project_path,
+    } = match parse_launch_options()? {
+        ParsedLaunch::Run(options) => options,
+        ParsedLaunch::Help(text) => {
+            print!("{text}");
+            return Ok(());
+        }
+    };
     // Fail with an explanation instead of an access violation when the host has
     // no GPU-backed wgpu adapter. The compositor's effect shader cannot be
     // compiled on a CPU adapter, so the launch cannot proceed at all.
@@ -301,6 +311,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         quit_confirmed: Cell::new(false),
     });
     lifecycle_ui.sync_live_settings();
+    // A project named on the command line is opened before the event loop, so a
+    // file manager handing over a `.aviqtl` file lands on the project rather than
+    // on the launcher with nothing to do.
+    if let Some(path) = project_path.as_deref() {
+        lifecycle_ui.open_project_path(path, true);
+    }
     install_callbacks(
         WindowRefs {
             launcher: &launcher,

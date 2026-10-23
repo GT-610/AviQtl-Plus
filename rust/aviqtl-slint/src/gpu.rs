@@ -100,18 +100,63 @@ pub(super) fn missing_gpu_message(adapters: &[String]) -> String {
 }
 
 /// Launch options parsed from the command line.
+#[derive(Debug)]
 pub(super) struct LaunchOptions {
     /// Frame budget for the opt-in `--validate-gpu` / `--frames` gate.
     pub(super) validation_frames: Option<u64>,
+    /// A project to open once the windows exist, so a file manager or a shell can
+    /// hand a `.aviqtl` file to the application the way any desktop editor takes one.
+    pub(super) project_path: Option<std::path::PathBuf>,
 }
 
-pub(super) fn parse_launch_options() -> Result<LaunchOptions, String> {
-    let mut args = std::env::args().skip(1);
+/// What was asked for on the command line before the event loop starts.
+#[derive(Debug)]
+pub(super) enum ParsedLaunch {
+    /// Run the application.
+    Run(LaunchOptions),
+    /// Print this text and exit successfully.
+    Help(String),
+}
+
+pub(super) fn usage() -> String {
+    format!(
+        "AviQtl Plus {}\n\
+         \n\
+         Usage: aviqtl-slint [project.aviqtl]\n\
+         \n\
+         Arguments:\n\
+         \x20 project.aviqtl     Open this project once the interface is up\n\
+         \n\
+         Options:\n\
+         \x20 --validate-gpu     Render a fixed number of frames, report the backend,\n\
+         \x20                    and fail on a recorded wgpu error\n\
+         \x20 --frames <n>       Frame budget for --validate-gpu (default 120)\n\
+         \x20 -h, --help         Print this text and exit\n\
+         \x20 --version          Print the version and exit\n",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
+pub(super) fn parse_launch_options() -> Result<ParsedLaunch, String> {
+    parse_launch_args(std::env::args().skip(1))
+}
+
+pub(super) fn parse_launch_args(
+    mut args: impl Iterator<Item = String>,
+) -> Result<ParsedLaunch, String> {
     let mut options = LaunchOptions {
         validation_frames: None,
+        project_path: None,
     };
     while let Some(argument) = args.next() {
         match argument.as_str() {
+            "--help" | "-h" => return Ok(ParsedLaunch::Help(usage())),
+            "--version" => {
+                return Ok(ParsedLaunch::Help(format!(
+                    "AviQtl Plus {}\n",
+                    env!("CARGO_PKG_VERSION")
+                )));
+            }
             "--validate-gpu" => options.validation_frames = Some(120),
             "--frames" => {
                 let value = args.next().ok_or("--frames requires a value")?;
@@ -122,10 +167,19 @@ pub(super) fn parse_launch_options() -> Result<LaunchOptions, String> {
                         .max(1),
                 );
             }
-            _ => return Err(format!("unknown argument: {argument}")),
+            // Anything that is not an option is the project to open. A file manager
+            // launches the bundle with the path as the only argument, and refusing it
+            // would mean a double-clicked project does nothing.
+            other if !other.starts_with('-') => {
+                if options.project_path.is_some() {
+                    return Err("only one project can be opened at a time".to_owned());
+                }
+                options.project_path = Some(std::path::PathBuf::from(other));
+            }
+            other => return Err(format!("unknown argument: {other}\n\n{}", usage())),
         }
     }
-    Ok(options)
+    Ok(ParsedLaunch::Run(options))
 }
 
 pub(super) struct AppGpu {
