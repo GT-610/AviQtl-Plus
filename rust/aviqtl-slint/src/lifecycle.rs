@@ -178,25 +178,19 @@ impl LifecycleUi {
             WorkspaceOrigin::Timeline => timeline.window(),
         };
         // The menu that was used decides the screen; the preview window is only
-        // the fallback for a window that has no monitor yet.
-        let screen = monitor_screen(origin_window)
+        // the fallback for a window that has no monitor yet. The monitor's own
+        // scale factor is what the whole layout below is expressed in.
+        let (screen, reference_scale) = monitor_screen(origin_window)
             .or_else(|| monitor_screen(main.window()))
-            .unwrap_or(crate::dialogs::WindowGeometry::new(32, 48, 1280, 800));
+            .unwrap_or((crate::dialogs::WindowGeometry::new(32, 48, 1280, 800), 1.0));
         let defaults = editor_layout(screen, "editing");
         if action == "recover-screen" {
             for ((_, window), fallback) in windows.iter().zip(defaults) {
-                let current = crate::dialogs::WindowGeometry::capture(window);
+                let current = crate::dialogs::WindowGeometry::capture_at(window, reference_scale);
                 let Some(geometry) = recover_window_geometry(current, screen, fallback) else {
                     continue;
                 };
-                window.set_size(slint::LogicalSize::new(
-                    geometry.width as f32,
-                    geometry.height as f32,
-                ));
-                window.set_position(slint::LogicalPosition::new(
-                    geometry.x as f32,
-                    geometry.y as f32,
-                ));
+                apply_window_geometry(window, geometry, reference_scale);
             }
             return;
         }
@@ -224,15 +218,7 @@ impl LifecycleUi {
             geometry.y = geometry
                 .y
                 .clamp(screen.y, screen.y + screen.height - geometry.height);
-            window.set_maximized(false);
-            window.set_size(slint::LogicalSize::new(
-                geometry.width as f32,
-                geometry.height as f32,
-            ));
-            window.set_position(slint::LogicalPosition::new(
-                geometry.x as f32,
-                geometry.y as f32,
-            ));
+            apply_window_geometry(window, geometry, reference_scale);
             if saved_window
                 .and_then(|entry| entry.get("visible"))
                 .and_then(serde_json::Value::as_bool)
@@ -861,26 +847,72 @@ impl LifecycleUi {
     }
 }
 
-/// The usable area of the screen a window currently sits on.
+/// The usable area of the screen a window currently sits on, together with that
+/// screen's scale factor.
 ///
-/// A window that has not been mapped yet reports no monitor, which is why the
-/// caller has a fallback.
-fn monitor_screen(window: &slint::Window) -> Option<crate::dialogs::WindowGeometry> {
+/// The area is in the screen's own logical pixels, which is the space
+/// `editor_layout` works in. A window that has not been mapped yet reports no
+/// monitor, which is why the caller has a fallback.
+fn monitor_screen(window: &slint::Window) -> Option<(crate::dialogs::WindowGeometry, f32)> {
     window
         .with_winit_window(|window| {
             window.current_monitor().map(|monitor| {
-                let scale = monitor.scale_factor();
-                let position = monitor.position().to_logical::<i32>(scale);
-                let size = monitor.size().to_logical::<i32>(scale);
-                crate::dialogs::WindowGeometry::new(
-                    position.x + 12,
-                    position.y + 36,
-                    (size.width - 24).max(1),
-                    (size.height - 100).max(1),
+                // winit reports the monitor's scale as `f64`; Slint measures
+                // windows in `f32`.
+                let monitor_scale = monitor.scale_factor();
+                let position = monitor.position().to_logical::<i32>(monitor_scale);
+                let size = monitor.size().to_logical::<i32>(monitor_scale);
+                (
+                    crate::dialogs::WindowGeometry::new(
+                        position.x + 12,
+                        position.y + 36,
+                        (size.width - 24).max(1),
+                        (size.height - 100).max(1),
+                    ),
+                    monitor_scale as f32,
                 )
             })
         })
         .flatten()
+}
+
+/// Moves and resizes a window to a geometry expressed in `reference_scale`
+/// logical pixels.
+///
+/// Slint measures a window in physical pixels but applies `LogicalPosition` and
+/// `LogicalSize` with the scale factor of the window being moved, so a layout
+/// computed on one monitor comes out at the wrong size and place on a window
+/// that sits on a monitor with a different scale. Converting to physical pixels
+/// here - with the one scale the layout was computed at - puts every window in
+/// the same coordinate space regardless of where it currently is.
+fn apply_window_geometry(
+    window: &slint::Window,
+    geometry: crate::dialogs::WindowGeometry,
+    reference_scale: f32,
+) {
+    let (position, size) = physical_geometry(geometry, reference_scale);
+    window.set_maximized(false);
+    window.set_size(size);
+    window.set_position(position);
+}
+
+/// Converts a geometry measured in `scale` logical pixels into the physical
+/// pixels Slint applies directly.
+pub(super) fn physical_geometry(
+    geometry: crate::dialogs::WindowGeometry,
+    scale: f32,
+) -> (slint::PhysicalPosition, slint::PhysicalSize) {
+    let scale = scale.max(f32::EPSILON);
+    (
+        slint::PhysicalPosition::new(
+            (geometry.x as f32 * scale).round() as i32,
+            (geometry.y as f32 * scale).round() as i32,
+        ),
+        slint::PhysicalSize::new(
+            (geometry.width as f32 * scale).round().max(1.0) as u32,
+            (geometry.height as f32 * scale).round().max(1.0) as u32,
+        ),
+    )
 }
 
 pub(super) fn editor_layout(

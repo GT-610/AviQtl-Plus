@@ -29,6 +29,33 @@ fn workspace_presets_keep_window_origins_on_the_current_monitor() {
     }
 }
 
+/// A layout is computed in the logical pixels of the monitor the command came
+/// from, but Slint applies `LogicalSize` with the scale of the window being
+/// moved. Handing it physical pixels instead keeps one coordinate space, so a
+/// window landing on a 2x display is the same size in points as on the 1x one it
+/// was laid out for.
+#[test]
+fn a_layout_crosses_a_scale_change_in_one_coordinate_space() {
+    let geometry = WindowGeometry::new(-1712, 36, 1680, 900);
+
+    let (position, size) = crate::lifecycle::physical_geometry(geometry, 1.0);
+    assert_eq!(position.x, -1712);
+    assert_eq!(position.y, 36);
+    assert_eq!(size.width, 1680);
+    assert_eq!(size.height, 900);
+
+    // A Retina monitor doubles both, which is exactly what the window reports
+    // back as its physical size.
+    let (position, size) = crate::lifecycle::physical_geometry(geometry, 2.0);
+    assert_eq!(position.x, -3424);
+    assert_eq!(position.y, 72);
+    assert_eq!(size.width, 3360);
+    assert_eq!(size.height, 1800);
+    // Rounding never collapses a window to nothing.
+    let (_, size) = crate::lifecycle::physical_geometry(WindowGeometry::new(0, 0, 1, 1), 0.5);
+    assert!(size.width >= 1 && size.height >= 1);
+}
+
 #[test]
 fn screen_recovery_moves_only_fully_off_screen_windows() {
     let screen = WindowGeometry::new(0, 0, 1000, 800);

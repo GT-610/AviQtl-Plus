@@ -42,6 +42,9 @@ All notable changes to AviQtl-Plus are documented in this file.
 - A layout command from the timeline menu acts on the timeline's screen, so
   "Bring editor windows onto this screen" no longer pulls the editor to the
   preview window's monitor when the two are on different displays
+- Window layouts are applied in physical pixels computed from one monitor's
+  scale, so a window that lands on a display with a different scaling factor
+  keeps the size and place the layout gave it instead of being doubled or halved
 - The timeline refuses to split a selection it cannot split with a translated
   sentence rather than an English one
 
