@@ -2232,8 +2232,11 @@ impl WorkspaceModel {
             .cloned()
             .collect::<Vec<_>>();
         if clips.is_empty() {
-            self.status =
-                "Move the edit frame inside at least one selected clip before splitting".to_owned();
+            self.set_status(status_message!(
+                "Move the edit frame inside at least one selected clip before splitting",
+                "请先把编辑帧移到至少一个已选片段内，再执行分割",
+                "分割する前に、編集フレームを選択中のクリップの内側へ移動してください"
+            ));
             return false;
         }
         let new_clip_ids = match self.project.state.reserve_clip_ids(clips.len()) {

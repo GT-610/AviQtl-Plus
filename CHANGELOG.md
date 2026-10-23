@@ -33,7 +33,17 @@ All notable changes to AviQtl-Plus are documented in this file.
   default, which a script insert and a project opened from AviUtl still use
 - A recovery snapshot that stops being written is reported in the status bar once
   per distinct failure instead of only in a window that is not on screen while a
-  project is open
+  project is open. The warning is also withdrawn once the snapshot is written
+  again, and it is compared by the whole failure list, so a changed second failure
+  is not mistaken for a repeat
+- The menu bar's accelerators stay out of the way on the timeline while the zoom
+  box or one of the layer dialogs holds the keyboard, so Ctrl/Cmd+Z edits that
+  field instead of undoing the project
+- A layout command from the timeline menu acts on the timeline's screen, so
+  "Bring editor windows onto this screen" no longer pulls the editor to the
+  preview window's monitor when the two are on different displays
+- The timeline refuses to split a selection it cannot split with a translated
+  sentence rather than an English one
 
 ## [0.7.0-rc.1] - 2026-10-22
 

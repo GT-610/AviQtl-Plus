@@ -9,7 +9,9 @@ use crate::easing::{
     easing_options, invoke_current_easing, sync_easing_catalog, sync_easing_curve,
     sync_easing_preview,
 };
-use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
+use crate::lifecycle::{
+    LifecycleUi, WindowRefs, WorkspaceOrigin, sync_launcher, sync_recovery_window,
+};
 use crate::localization::localized;
 use crate::object_settings::{
     ObjectSettingsUi, moved_context_search_selection, sync_object_catalog, sync_object_settings,
@@ -265,9 +267,10 @@ pub(super) fn install_callbacks(
 ) {
     let system_apply_ui = lifecycle_ui.clone();
     let workspace_layout_ui = lifecycle_ui.clone();
-    windows
-        .main
-        .on_workspace_action(move |action| workspace_layout_ui.workspace_action(action.as_str()));
+    windows.main.on_workspace_action(move |action| {
+        workspace_layout_ui.workspace_action(action.as_str(), WorkspaceOrigin::Main);
+    });
+    let timeline_workspace_layout_ui = lifecycle_ui.clone();
     let model = lifecycle_ui.model.clone();
     let settings = lifecycle_ui.settings.clone();
     let effect_catalog = lifecycle_ui.effect_catalog.clone();
@@ -2470,11 +2473,11 @@ pub(super) fn install_callbacks(
     forward_menu_item!(on_show_system_settings => invoke_show_system_settings);
     forward_menu_item!(on_show_package_manager => invoke_show_package_manager);
     forward_menu_item!(on_show_about => invoke_show_about);
-    let workspace_target = main.as_weak();
+    // A layout command taken from the timeline menu acts on the timeline's own
+    // screen: "Bring editor windows onto this screen" means the screen the menu
+    // was opened on, not the preview window's.
     timeline.on_workspace_action(move |action| {
-        if let Some(main) = workspace_target.upgrade() {
-            main.invoke_workspace_action(action);
-        }
+        timeline_workspace_layout_ui.workspace_action(action.as_str(), WorkspaceOrigin::Timeline);
     });
     // "Manage Missing Media" opens the dialog that belongs to the preview window,
     // so the preview comes forward with it.

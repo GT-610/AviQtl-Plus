@@ -1405,6 +1405,44 @@ fn a_recovery_failure_reaches_the_status_line_once_per_distinct_failure() {
         text.ends_with("(+1)"),
         "the extra failures are counted: {text}"
     );
+
+    // The short status text cannot stand in for the failure list: a second
+    // failure that changes under the same count reads the same in the status
+    // line, which is why the loop compares the list and the recovery window is
+    // refreshed from it.
+    let changed_second = vec![
+        "Operation not permitted (os error 1)".to_owned(),
+        "Input/output error (os error 5)".to_owned(),
+    ];
+    assert_eq!(
+        crate::lifecycle::recovery_failure_status(&changed_second),
+        text
+    );
+    assert_ne!(changed_second, many);
+}
+
+/// The timeline menu bar supplies `MenuItem.shortcut`, so an accelerator that
+/// stays armed while a text field or a layer dialog owns the keyboard turns
+/// Ctrl/Cmd+Z into a project undo behind the user's cursor.
+#[test]
+fn timeline_accelerators_step_aside_for_every_keyboard_owner() {
+    let source = include_str!("../ui/timeline.slint");
+    let start = source
+        .find("private property <bool> menu-accelerators-enabled:")
+        .expect("the timeline declares the accelerator gate");
+    let expression = &source[start..start + source[start..].find(';').expect("closed expression")];
+    for owner in [
+        "context-search-visible",
+        "object-picker-visible",
+        "insert-layers-visible",
+        "shift-layers-visible",
+        "zoom-field.has-focus",
+    ] {
+        assert!(
+            expression.contains(owner),
+            "the accelerator gate ignores {owner}: {expression}"
+        );
+    }
 }
 
 #[test]

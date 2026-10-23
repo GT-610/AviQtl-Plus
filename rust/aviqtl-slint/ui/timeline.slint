@@ -168,10 +168,14 @@ export component TimelineWindow inherits Window {
     in property <[keys]> menu-shortcuts;
     private property <keys> no-shortcut;
     // The timeline carries its own menu bar because macOS shows the menus of
-    // the focused window only. Accelerators step aside while a popup holds a
-    // text field, exactly as they do in the preview window.
+    // the focused window only. Accelerators step aside while a popup or a layer
+    // dialog holds the keyboard, exactly as they do in the preview window; the
+    // zoom box is a text field of its own, so Ctrl/Cmd+Z stays an edit of that
+    // field instead of undoing the project.
     private property <bool> menu-accelerators-enabled:
-        !root.context-search-visible && !root.object-picker-visible;
+        !root.context-search-visible && !root.object-picker-visible
+        && !root.insert-layers-visible && !root.shift-layers-visible
+        && !zoom-field.has-focus;
     in property <bool> save-confirmation-visible: false;
     in property <bool> has-missing-media: false;
     callback new-project();

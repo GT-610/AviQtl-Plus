@@ -127,8 +127,19 @@ pub(super) fn show_fragment_report(model: &mut ApplicationModel) {
     );
 }
 
+/// The window whose menu asked for a workspace layout change.
+///
+/// "Bring editor windows onto this screen" has to mean the screen the menu was
+/// opened on: with the timeline on a second monitor, the preview's monitor is
+/// the wrong answer. Only windows that carry a menu bar appear here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkspaceOrigin {
+    Main,
+    Timeline,
+}
+
 impl LifecycleUi {
-    pub(super) fn workspace_action(&self, action: &str) {
+    pub(super) fn workspace_action(&self, action: &str, origin: WorkspaceOrigin) {
         let (Some(main), Some(timeline), Some(objects)) = (
             self.main.upgrade(),
             self.timeline.upgrade(),
@@ -162,22 +173,14 @@ impl LifecycleUi {
             }
             return;
         }
-        let screen = main
-            .window()
-            .with_winit_window(|window| {
-                window.current_monitor().map(|monitor| {
-                    let scale = monitor.scale_factor();
-                    let position = monitor.position().to_logical::<i32>(scale);
-                    let size = monitor.size().to_logical::<i32>(scale);
-                    crate::dialogs::WindowGeometry::new(
-                        position.x + 12,
-                        position.y + 36,
-                        (size.width - 24).max(1),
-                        (size.height - 100).max(1),
-                    )
-                })
-            })
-            .flatten()
+        let origin_window = match origin {
+            WorkspaceOrigin::Main => main.window(),
+            WorkspaceOrigin::Timeline => timeline.window(),
+        };
+        // The menu that was used decides the screen; the preview window is only
+        // the fallback for a window that has no monitor yet.
+        let screen = monitor_screen(origin_window)
+            .or_else(|| monitor_screen(main.window()))
             .unwrap_or(crate::dialogs::WindowGeometry::new(32, 48, 1280, 800));
         let defaults = editor_layout(screen, "editing");
         if action == "recover-screen" {
@@ -856,6 +859,28 @@ impl LifecycleUi {
             eprintln!("Failed to save window geometries: {error}");
         }
     }
+}
+
+/// The usable area of the screen a window currently sits on.
+///
+/// A window that has not been mapped yet reports no monitor, which is why the
+/// caller has a fallback.
+fn monitor_screen(window: &slint::Window) -> Option<crate::dialogs::WindowGeometry> {
+    window
+        .with_winit_window(|window| {
+            window.current_monitor().map(|monitor| {
+                let scale = monitor.scale_factor();
+                let position = monitor.position().to_logical::<i32>(scale);
+                let size = monitor.size().to_logical::<i32>(scale);
+                crate::dialogs::WindowGeometry::new(
+                    position.x + 12,
+                    position.y + 36,
+                    (size.width - 24).max(1),
+                    (size.height - 100).max(1),
+                )
+            })
+        })
+        .flatten()
 }
 
 pub(super) fn editor_layout(

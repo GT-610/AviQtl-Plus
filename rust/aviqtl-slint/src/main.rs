@@ -311,12 +311,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         quit_confirmed: Cell::new(false),
     });
     lifecycle_ui.sync_live_settings();
-    // A project named on the command line is opened before the event loop, so a
-    // file manager handing over a `.aviqtl` file lands on the project rather than
-    // on the launcher with nothing to do.
-    if let Some(path) = project_path.as_deref() {
-        lifecycle_ui.open_project_path(path, true);
-    }
+    // A project named on the command line is opened later, once the launcher is
+    // on screen; see the branch below that shows the launcher first.
+    let cli_project_ui = lifecycle_ui.clone();
     install_callbacks(
         WindowRefs {
             launcher: &launcher,
@@ -441,6 +438,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         show_and_redraw(&launcher)?;
         if !model.borrow().recovery_entries().is_empty() {
             show_and_redraw(&recovery)?;
+        }
+        // A project named on the command line opens once the launcher is up, so a
+        // file manager handing over a `.aviqtl` file lands on the project instead
+        // of an empty launcher - and a path that fails to open still leaves the
+        // launcher on screen with its error dialog rather than nothing at all.
+        if let Some(path) = project_path.as_deref() {
+            cli_project_ui.open_project_path(path, true);
         }
     }
 
@@ -768,20 +772,42 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let recovery_model = model.clone();
     let recovery_window = recovery.as_weak();
     let recovery_main = main.as_weak();
+    let recovery_timeline = timeline.as_weak();
     // The loop runs once a second. A write that keeps failing must not overwrite
-    // the status line every second with the same sentence, so only a change in the
-    // reported failure is shown, and a failure that clears is forgotten.
-    let reported_recovery_failure: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+    // the status line every second with the same sentence, so the loop compares
+    // the whole reported list - a shortened status can hide a changed second
+    // failure - and a failure that clears is withdrawn again.
+    let reported_recovery_failure: Rc<RefCell<Option<Vec<String>>>> = Rc::new(RefCell::new(None));
     recovery_timer.start(TimerMode::Repeated, Duration::from_secs(1), move || {
         let errors = recovery_model.borrow_mut().update_recovery();
+        if reported_recovery_failure.borrow().as_deref() == Some(errors.as_slice()) {
+            return;
+        }
+        let previous = std::mem::replace(
+            &mut *reported_recovery_failure.borrow_mut(),
+            (!errors.is_empty()).then(|| errors.clone()),
+        );
+        if errors.is_empty() {
+            // The snapshot is being written again, so the warning is withdrawn:
+            // the recovery window drops the error it still lists, and the status
+            // line goes back to the workspace status - unless something newer has
+            // taken it over in the meantime.
+            let Some(previous) = previous else {
+                return;
+            };
+            let reported = recovery_failure_status(&previous);
+            if let Some(window) = recovery_window.upgrade() {
+                window.set_error_message(SharedString::new());
+            }
+            if let (Some(main), Some(timeline)) =
+                (recovery_main.upgrade(), recovery_timeline.upgrade())
+                && main.get_status_text().as_str() == reported
+            {
+                sync_transport(&main, &timeline, &recovery_model.borrow());
+            }
+            return;
+        }
         let status = recovery_failure_status(&errors);
-        if reported_recovery_failure.borrow().as_deref() == Some(status.as_str()) {
-            return;
-        }
-        *reported_recovery_failure.borrow_mut() = (!status.is_empty()).then(|| status.clone());
-        if status.is_empty() {
-            return;
-        }
         eprintln!("{status}");
         if let Some(window) = recovery_window.upgrade() {
             sync_recovery_window(&window, &recovery_model.borrow());
