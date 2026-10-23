@@ -254,10 +254,15 @@ impl LifecycleUi {
 
     pub(super) fn handle(&self, mut step: LifecycleStep) {
         loop {
-            if !matches!(step, LifecycleStep::ConfirmSave { .. })
-                && let Some(main) = self.main.upgrade()
-            {
-                main.set_save_confirmation_visible(false);
+            if !matches!(step, LifecycleStep::ConfirmSave { .. }) {
+                if let Some(main) = self.main.upgrade() {
+                    main.set_save_confirmation_visible(false);
+                }
+                // The timeline window carries its own menu bar; the items that act
+                // on the project have to grey out with the preview window's.
+                if let Some(timeline) = self.timeline.upgrade() {
+                    timeline.set_save_confirmation_visible(false);
+                }
             }
 
             match step {
@@ -268,6 +273,9 @@ impl LifecycleUi {
                         main.set_save_confirmation_project(project_name.into());
                         main.set_save_confirmation_visible(true);
                         let _ = show_and_redraw(&main);
+                    }
+                    if let Some(timeline) = self.timeline.upgrade() {
+                        timeline.set_save_confirmation_visible(true);
                     }
                     return;
                 }

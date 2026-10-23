@@ -162,6 +162,95 @@ export component TimelineWindow inherits Window {
     callback begin-scrub();
     callback scrub-to(float);
     callback end-scrub();
+    // The menu bar follows the focused window on macOS, so this window carries
+    // its own copy of the shared bar; the callbacks forward to the same app
+    // commands the preview window uses (see the wiring in callbacks.rs).
+    in property <[keys]> menu-shortcuts;
+    private property <keys> no-shortcut;
+    // The timeline carries its own menu bar because macOS shows the menus of
+    // the focused window only. Accelerators step aside while a popup holds a
+    // text field, exactly as they do in the preview window.
+    private property <bool> menu-accelerators-enabled:
+        !root.context-search-visible && !root.object-picker-visible;
+    in property <bool> save-confirmation-visible: false;
+    in property <bool> has-missing-media: false;
+    callback new-project();
+    callback open-project();
+    callback save-project();
+    callback save-project-as();
+    callback import-fragment();
+    callback export-fragment();
+    callback new-project-from-exo-file();
+    callback import-exo-object-file();
+    callback export-media();
+    callback quit-requested();
+    callback undo();
+    callback redo();
+    callback show-timeline();
+    callback show-project-settings();
+    callback show-system-settings();
+    callback show-package-manager();
+    callback show-about();
+    callback workspace-action(string);
+    callback manage-missing-media();
+
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem { title: @tr("New Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[0] : root.no-shortcut; icon: @image-url("icons/new.svg"); enabled: !root.save-confirmation-visible; activated => { root.new-project(); } }
+            MenuItem { title: @tr("Open Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[1] : root.no-shortcut; icon: @image-url("icons/open.svg"); enabled: !root.save-confirmation-visible; activated => { root.open-project(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Save Project"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[2] : root.no-shortcut; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project(); } }
+            MenuItem { title: @tr("Save Project As..."); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[3] : root.no-shortcut; icon: @image-url("icons/save.svg"); enabled: !root.save-confirmation-visible; activated => { root.save-project-as(); } }
+            MenuItem {
+                title: @tr("Manage Missing Media");
+                enabled: !root.save-confirmation-visible && root.has-missing-media;
+                activated => { root.manage-missing-media(); }
+            }
+            MenuSeparator { }
+            MenuItem { title: @tr("Insert Fragment..."); enabled: !root.save-confirmation-visible; activated => { root.import-fragment(); } }
+            MenuItem { title: @tr("Export Fragment..."); enabled: !root.save-confirmation-visible; activated => { root.export-fragment(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("New Project from AviUtl Object File..."); enabled: !root.save-confirmation-visible; activated => { root.new-project-from-exo-file(); } }
+            MenuItem { title: @tr("Import AviUtl Object File (Compatibility)..."); enabled: !root.save-confirmation-visible; activated => { root.import-exo-object-file(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Export Media..."); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[4] : root.no-shortcut; icon: @image-url("icons/export.svg"); enabled: !root.save-confirmation-visible; activated => { root.export-media(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Exit"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[5] : root.no-shortcut; icon: @image-url("icons/close.svg"); enabled: !root.save-confirmation-visible; activated => { root.quit-requested(); } }
+        }
+        Menu {
+            title: @tr("Edit");
+            MenuItem { title: @tr("Undo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[7] : root.no-shortcut; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
+            MenuItem { title: @tr("Redo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[8] : root.no-shortcut; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+        }
+        Menu {
+            title: @tr("Settings");
+            MenuItem { title: @tr("Project Settings"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[23] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-project-settings(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Preferences"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[6] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-system-settings(); } }
+        }
+        Menu {
+            title: @tr("View");
+            MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[21] : root.no-shortcut; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
+            MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[22] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
+            Menu {
+                title: @tr("Workspace");
+                MenuItem { title: @tr("Editing layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("editing"); } }
+                MenuItem { title: @tr("Animation layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("animation"); } }
+                MenuItem { title: @tr("Audio layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("audio"); } }
+                MenuSeparator { }
+                MenuItem { title: @tr("Save current layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("save"); } }
+                MenuItem { title: @tr("Restore saved layout"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("restore"); } }
+                MenuItem { title: @tr("Bring editor windows onto this screen"); enabled: !root.save-confirmation-visible; activated => { root.workspace-action("recover-screen"); } }
+            }
+        }
+        Menu {
+            title: @tr("Tools");
+            MenuItem { title: @tr("Package Manager"); enabled: !root.save-confirmation-visible; activated => { root.show-package-manager(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("About"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
+        }
+    }
 
     function zoom-percent-to-scale(percent: float) -> float {
         return percent <= 100 ? percent / 100 : 1 + (percent - 100) * 9 / 300;

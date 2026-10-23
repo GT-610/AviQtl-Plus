@@ -1323,3 +1323,55 @@ fn validation_fixture_matches_the_shape_of_a_saved_project() {
         );
     }
 }
+
+/// Extracts the item titles and the accelerator slots of the `MenuBar` block, in
+/// document order.
+fn menu_bar_signature(source: &str, file: &str) -> Vec<String> {
+    let start = source
+        .find("    MenuBar {")
+        .unwrap_or_else(|| panic!("{file} has no MenuBar"));
+    let mut depth = 0_i32;
+    let mut end = start;
+    for (index, character) in source[start..].char_indices() {
+        match character {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = start + index + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let block = &source[start..end];
+    let mut signature = Vec::new();
+    for line in block.lines() {
+        if let Some(rest) = line.split_once("title: @tr(\"") {
+            let title = rest.1.split_once("\")").expect("closed title").0;
+            signature.push(format!("title:{title}"));
+        } else if let Some(rest) = line.split_once("menu-shortcuts[") {
+            let slot = rest.1.split_once(']').expect("closed slot").0;
+            signature.push(format!("shortcut:{slot}"));
+        } else if line.trim() == "MenuSeparator { }" {
+            signature.push("separator".to_owned());
+        }
+    }
+    signature
+}
+
+/// The preview window and the timeline window each declare their own `MenuBar`,
+/// because Slint allows one per window and macOS only shows the bar of the
+/// focused window. That duplication is only safe while both bars expose the same
+/// items in the same order with the same accelerators, which this pins.
+#[test]
+fn both_windows_declare_the_same_menu_bar() {
+    let preview = menu_bar_signature(include_str!("../ui/main.slint"), "ui/main.slint");
+    let timeline = menu_bar_signature(include_str!("../ui/timeline.slint"), "ui/timeline.slint");
+    assert!(
+        preview.len() > 20,
+        "the menu bar signature looks truncated: {preview:?}"
+    );
+    assert_eq!(preview, timeline);
+}
