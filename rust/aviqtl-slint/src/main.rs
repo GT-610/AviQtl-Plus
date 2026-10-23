@@ -33,7 +33,9 @@ use crate::gpu::{
     AppGpu, GpuValidation, LaunchOptions, VALIDATION_PROJECT, WindowKind, describe_adapters,
     has_gpu_backed_adapter, install_render_probe, missing_gpu_message, parse_launch_options,
 };
-use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
+use crate::lifecycle::{
+    LifecycleUi, WindowRefs, recovery_failure_status, sync_launcher, sync_recovery_window,
+};
 use crate::localization::select_bundled_ui_translation;
 use crate::object_settings::{
     ObjectSettingsSyncKey, initialize_timeline_object_catalog, object_settings_sync_key,
@@ -749,17 +751,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let recovery_timer = Timer::default();
     let recovery_model = model.clone();
     let recovery_window = recovery.as_weak();
+    let recovery_main = main.as_weak();
+    // The loop runs once a second. A write that keeps failing must not overwrite
+    // the status line every second with the same sentence, so only a change in the
+    // reported failure is shown, and a failure that clears is forgotten.
+    let reported_recovery_failure: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     recovery_timer.start(TimerMode::Repeated, Duration::from_secs(1), move || {
         let errors = recovery_model.borrow_mut().update_recovery();
-        if errors.is_empty() {
+        let status = recovery_failure_status(&errors);
+        if reported_recovery_failure.borrow().as_deref() == Some(status.as_str()) {
             return;
         }
-        for error in &errors {
-            eprintln!("Project recovery failed: {error}");
+        *reported_recovery_failure.borrow_mut() = (!status.is_empty()).then(|| status.clone());
+        if status.is_empty() {
+            return;
         }
+        eprintln!("{status}");
         if let Some(window) = recovery_window.upgrade() {
             sync_recovery_window(&window, &recovery_model.borrow());
             window.set_error_message(SharedString::from(errors.join("\n")));
+        }
+        // A recovery failure is otherwise invisible while a project is open, which
+        // is exactly when the lost snapshot would matter.
+        if let Some(window) = recovery_main.upgrade() {
+            window.set_status_text(SharedString::from(status));
         }
     });
 

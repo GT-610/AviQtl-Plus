@@ -1023,6 +1023,27 @@ pub(super) fn merge_recent_project(
     recent
 }
 
+/// The status line a recovery write failure produces.
+///
+/// The recovery window carries the whole list; the status bar carries the first
+/// failure so someone editing when the snapshots stop being written learns about
+/// it without opening that window. `main.rs` reports each distinct message once,
+/// because the retry loop runs every second and repeats would bury the first one.
+pub(super) fn recovery_failure_status(errors: &[String]) -> String {
+    let Some(first) = errors.first() else {
+        return String::new();
+    };
+    let prefix = localized(
+        "Project recovery failed",
+        "项目恢复失败",
+        "プロジェクトの復旧に失敗しました",
+    );
+    match errors.len() {
+        1 => format!("{prefix}: {first}"),
+        count => format!("{prefix}: {first} (+{})", count - 1),
+    }
+}
+
 pub(super) fn sync_recovery_window(window: &ProjectRecoveryWindow, model: &ApplicationModel) {
     sync_recovery_entries(window, model.recovery_entries());
 }

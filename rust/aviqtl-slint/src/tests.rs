@@ -1375,3 +1375,34 @@ fn both_windows_declare_the_same_menu_bar() {
     );
     assert_eq!(preview, timeline);
 }
+
+#[test]
+fn a_recovery_failure_reaches_the_status_line_once_per_distinct_failure() {
+    // Nothing to report keeps the status line alone.
+    assert_eq!(crate::lifecycle::recovery_failure_status(&[]), "");
+
+    let one = vec!["Operation not permitted (os error 1)".to_owned()];
+    let text = crate::lifecycle::recovery_failure_status(&one);
+    assert!(
+        text.contains("Operation not permitted (os error 1)"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("(+"),
+        "a single failure has no count: {text}"
+    );
+
+    let many = vec![
+        "Operation not permitted (os error 1)".to_owned(),
+        "No space left on device (os error 28)".to_owned(),
+    ];
+    let text = crate::lifecycle::recovery_failure_status(&many);
+    assert!(text.starts_with("Project recovery failed"), "{text}");
+    // The status line has room for the first failure; the rest are counted, and
+    // the recovery window still lists every one of them.
+    assert!(text.contains("Operation not permitted"), "{text}");
+    assert!(
+        text.ends_with("(+1)"),
+        "the extra failures are counted: {text}"
+    );
+}

@@ -1751,6 +1751,9 @@ pub(super) fn install_callbacks(
                     layer.clamp(0, last_layer),
                     default_duration,
                     &catalog,
+                    // AviUtl's own default contents are Japanese; a new text object
+                    // should start in the language the interface is speaking.
+                    Some(localized("Text", "文本", "テキスト")),
                 )
             });
         sync_weak_windows(&object_add_main, &object_add_timeline, &object_add_model);

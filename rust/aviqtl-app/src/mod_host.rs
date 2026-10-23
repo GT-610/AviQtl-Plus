@@ -794,6 +794,7 @@ fn apply_command(
                 layer,
                 default_duration,
                 catalog,
+                None,
             ) {
                 return Err(workspace.status().to_owned());
             }

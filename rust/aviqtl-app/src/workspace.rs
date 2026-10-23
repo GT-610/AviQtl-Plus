@@ -2556,6 +2556,7 @@ impl WorkspaceModel {
         target_layer: i32,
         default_duration_frames: i32,
         catalog: &EffectCatalog,
+        text_default: Option<&str>,
     ) -> bool {
         let Some(object) = catalog
             .find(object_id)
@@ -2618,6 +2619,7 @@ impl WorkspaceModel {
             object,
             transform,
             target_scene_id,
+            text_default,
         );
         if !self.execute(TimelineCommand::InsertClip { index: None, clip }) {
             return false;
@@ -3656,6 +3658,7 @@ fn object_clip_from_metadata(
     object: &EffectMetadata,
     transform: Option<&EffectMetadata>,
     target_scene_id: Option<i32>,
+    text_default: Option<&str>,
 ) -> ClipDocument {
     let mut effects = transform
         .into_iter()
@@ -3666,6 +3669,16 @@ fn object_clip_from_metadata(
         object_effect
             .params
             .insert("targetSceneId".to_owned(), Value::from(target_scene_id));
+    }
+    // The catalog carries AviUtl's own defaults so a project made here matches
+    // what AviUtl would write, but a text object's first contents are read by the
+    // person who inserted it, so the interface language supplies that one value.
+    if let Some(text) = text_default
+        && object.id == "text"
+    {
+        object_effect
+            .params
+            .insert("text".to_owned(), Value::from(text));
     }
     effects.push(object_effect);
     ClipDocument {
@@ -3697,7 +3710,7 @@ fn media_clip_from_metadata(
     linked_video: bool,
 ) -> ClipDocument {
     let mut clip = object_clip_from_metadata(
-        clip_id, scene_id, start, layer, duration, object, transform, None,
+        clip_id, scene_id, start, layer, duration, object, transform, None, None,
     );
     if let Some(object_effect) = clip
         .effects
@@ -5535,11 +5548,58 @@ mod tests {
     }
 
     #[test]
+    fn inserted_text_object_takes_the_window_default_contents() {
+        let (catalog, _) = EffectCatalog::load();
+        let text_param = |workspace: &WorkspaceModel| {
+            workspace
+                .selected_clip_document()
+                .and_then(|clip| clip.effects.iter().find(|effect| effect.id == "text"))
+                .map(|effect| effect.params["text"].clone())
+                .expect("the inserted text object keeps its text effect")
+        };
+
+        // The catalog's own default is AviUtl's Japanese "テキスト" and stays that
+        // way when a caller has no interface language to offer - a script insert,
+        // for instance.
+        let mut plain = workspace();
+        assert!(plain.insert_catalog_object_at("text", 0, 0, 25, &catalog, None));
+        assert_eq!(text_param(&plain), serde_json::Value::from("テキスト"));
+
+        let mut localized_language = workspace();
+        assert!(localized_language.insert_catalog_object_at(
+            "text",
+            0,
+            0,
+            25,
+            &catalog,
+            Some("文本")
+        ));
+        assert_eq!(
+            text_param(&localized_language),
+            serde_json::Value::from("文本")
+        );
+
+        // Only the text object reads the override; every other object keeps the
+        // parameters its metadata declares.
+        let mut rectangle = workspace();
+        assert!(rectangle.insert_catalog_object_at("rect", 0, 0, 25, &catalog, Some("文本")));
+        let rectangle = rectangle
+            .selected_clip_document()
+            .expect("rect is selected");
+        assert!(
+            rectangle
+                .effects
+                .iter()
+                .all(|effect| !effect.params.contains_key("text"))
+        );
+    }
+
+    #[test]
     fn catalog_object_creation_uses_qt_defaults_selection_and_scene_target() {
         let (catalog, _) = EffectCatalog::load();
         let mut workspace = workspace();
 
-        assert!(workspace.insert_catalog_object_at("rect", 0, 0, 25, &catalog));
+        assert!(workspace.insert_catalog_object_at("rect", 0, 0, 25, &catalog, None));
         let rectangle = workspace
             .selected_clip_document()
             .expect("new rectangle becomes the primary selection");
@@ -5562,7 +5622,7 @@ mod tests {
 
         assert!(workspace.undo());
         assert_eq!(workspace.document().clips.len(), 3);
-        assert!(workspace.insert_catalog_object_at("scene", 10, 4, 30, &catalog));
+        assert!(workspace.insert_catalog_object_at("scene", 10, 4, 30, &catalog, None));
         let scene = workspace
             .selected_clip_document()
             .expect("new scene object becomes the primary selection");
