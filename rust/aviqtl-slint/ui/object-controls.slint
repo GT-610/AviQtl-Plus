@@ -247,13 +247,20 @@ export component ScrubNumberEdit inherits Rectangle {
 export component CommitTextEdit inherits TextEdit {
     in property <string> source-text;
     in property <bool> live-preview: false;
+    // A multiple selection that disagrees on a text parameter has no single text to show. The field
+    // starts empty and says so through its placeholder, so the first keystroke is a replacement and
+    // the placeholder can never become part of the value.
+    in property <bool> mixed: false;
+    in property <string> placeholder: "";
     callback commit(string);
     callback preview(string);
     callback finish-edit();
     callback cancel-edit();
     private property <bool> cancelling: false;
     private property <string> initial-text;
-    text: root.source-text;
+    private property <string> focus-text;
+    text: root.mixed ? "" : root.source-text;
+    placeholder-text: root.mixed ? root.placeholder : "";
     edited(value) => { if root.live-preview { root.preview(value); } }
     key-pressed(event) => {
         if event.text == Key.Escape {
@@ -267,14 +274,24 @@ export component CommitTextEdit inherits TextEdit {
     changed has-focus => {
         if self.has-focus {
             root.initial-text = self.text;
+            root.focus-text = self.text;
         } else if !root.cancelling {
+            // Live previews already applied what was typed; a field that is closed without a change
+            // must not commit, and a mixed field starts empty rather than with one object's text.
             if root.live-preview { root.finish-edit(); }
-            else if self.text != root.source-text { root.commit(self.text); }
+            else if self.text != root.focus-text { root.commit(self.text); }
         }
     }
     changed source-text => {
-        if !self.has-focus && self.text != root.source-text {
-            self.text = root.source-text;
+        let projected = root.mixed ? "" : root.source-text;
+        if !self.has-focus && self.text != projected {
+            self.text = projected;
+        }
+    }
+    changed mixed => {
+        let projected = root.mixed ? "" : root.source-text;
+        if !self.has-focus && self.text != projected {
+            self.text = projected;
         }
     }
 }
@@ -441,6 +458,13 @@ export component OverlayNumber inherits Rectangle {
             // The placeholder is not a value: Enter on an untouched mixed field must write nothing,
             // while a number the user typed has to reach the whole selection.
             if value != @tr("Mixed values") { root.commit(value); }
+        }
+        // Typing assigns `text` and drops the binding above, so a later projection - another row
+        // selected, a drag elsewhere, the selection becoming uniform again - has to be followed
+        // explicitly. Never under the cursor, where it would fight what the user is typing.
+        private property <string> projected: root.mixed ? @tr("Mixed values") : root.text-value;
+        changed projected => {
+            if !self.has-focus { self.text = self.projected; }
         }
         changed has-focus => {
             // Clicking away is an edit too: a number typed and then abandoned by clicking elsewhere
@@ -678,7 +702,8 @@ export component ObjectSettingRow inherits Rectangle {
             changed projected => { self.value = self.projected; }
             released => { root.finish-edit(); }
             changed has-focus => { if !self.has-focus { root.finish-edit(); } }
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && root.row-data.start-interactive;
+            opacity: root.row-data.start-interactive ? 1 : 0.45;
             changed(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(
@@ -704,8 +729,11 @@ export component ObjectSettingRow inherits Rectangle {
             height: 26px;
             mixed: root.row-data.mixed;
             text-value: root.row-data.text-value;
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && root.row-data.start-interactive;
+            opacity: root.row-data.start-interactive ? 1 : 0.45;
             label: root.row-data.label + @tr(" start value");
+            // An interval start belongs to one object's keyframe track; the projection turns this
+            // off when several objects are selected so the field cannot edit just the primary.
             preview(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
@@ -887,7 +915,9 @@ export component ObjectSettingRow inherits Rectangle {
             height: 62px;
             live-preview: true;
             horizontal-stretch: 1;
-            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
+            source-text: root.row-data.text-value;
+            mixed: root.row-data.mixed;
+            placeholder: @tr("Mixed values");
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label;
             preview(value) => {

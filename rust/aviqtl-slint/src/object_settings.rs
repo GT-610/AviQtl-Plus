@@ -569,11 +569,10 @@ pub(super) fn sync_object_settings(
         return;
     };
     window.set_has_selection(true);
-    window.set_multi_selection(
-        model
-            .current_workspace()
-            .is_some_and(|workspace| workspace.selected_clip_count() > 1),
-    );
+    let multiple_objects = model
+        .current_workspace()
+        .is_some_and(|workspace| workspace.selected_clip_count() > 1);
+    window.set_multi_selection(multiple_objects);
     window.set_selected_object_count(
         model
             .current_workspace()
@@ -648,6 +647,10 @@ pub(super) fn sync_object_settings(
     let mut rows = object_settings_rows(&projection);
     for row in &mut rows {
         row.folded = folded.contains(&(row.audio_plugin, row.effect_index));
+        // An interval start is a boundary of one object's keyframe track, and the setter behind this
+        // field edits the primary clip. Offering it for several selected objects would look like a
+        // selection-wide edit and quietly change one object, so the field goes read-only instead.
+        row.start_interactive = !(row.range_mode && multiple_objects);
         if row.param_name.is_empty() {
             continue;
         }
@@ -1071,6 +1074,7 @@ pub(super) fn parameter_row_updates(
             updated.folded = current.folded;
             updated.mixed = current.mixed;
             updated.absent = current.absent;
+            updated.start_interactive = current.start_interactive;
             updated.effect_id = current.effect_id.clone();
             updates.push((index, updated));
         }
@@ -1156,6 +1160,7 @@ fn push_object_settings_rows(
         keyframed: false,
         range_mode: false,
         right_interactive: false,
+        start_interactive: true,
         start_frame: 0,
         end_frame: 0,
         current_frame: 0,
@@ -1228,6 +1233,7 @@ fn push_object_settings_rows(
             keyframed: control.keyframed,
             range_mode: !audio_plugin && supports_track && control.keyframed,
             right_interactive,
+            start_interactive: true,
             start_frame: if audio_plugin {
                 control.relative_frame
             } else {

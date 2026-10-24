@@ -217,6 +217,9 @@ export struct ObjectSettingRowData {
     keyframed: bool,
     range-mode: bool,
     right-interactive: bool,
+    // False when the start field would edit only the primary object: an interval start belongs to
+    // one keyframe track, so a multi-object selection cannot express it.
+    start-interactive: bool,
     start-frame: int,
     end-frame: int,
     current-frame: int,
