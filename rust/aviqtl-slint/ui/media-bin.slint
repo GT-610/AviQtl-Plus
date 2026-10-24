@@ -50,7 +50,7 @@ export component MediaBinPanel inherits Rectangle {
                 clicked => { root.remove-media(root.selected-id); }
             }
         }
-        search := LineEdit {
+        LineEdit {
             placeholder-text: @tr("Search media");
             text <=> root.filter;
             accessible-label: @tr("Search media");
@@ -120,7 +120,7 @@ export component MediaBinPanel inherits Rectangle {
                     height: 52px;
                     border-radius: AppTheme.control-radius;
                     background: entry.id == root.selected-id ? AppTheme.selection-background : AppTheme.raised-background;
-                    row-touch := TouchArea {
+                    TouchArea {
                         accessible-role: list-item;
                         accessible-label: entry.name;
                         accessible-description: root.kind-label(entry.kind);
