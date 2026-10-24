@@ -413,6 +413,33 @@ export component EffectSidebarEntry inherits Rectangle {
     }
 }
 
+
+// A numeric field whose three states stay distinguishable: a normal number, a
+// mixed placeholder that refuses to imply the first object is authoritative,
+// and an absent field (handled by the row's interactive flag).
+export component OverlayNumber inherits Rectangle {
+    in property <bool> mixed: false;
+    in property <string> text-value: "";
+    in property <string> label: "";
+    in property <bool> enabled: true;
+    callback commit(string);
+    callback preview(float);
+    callback finish-edit();
+    callback cancel-edit();
+    width: 70px;
+    height: 26px;
+    LineEdit {
+        width: 100%;
+        height: 100%;
+        text: root.mixed ? @tr("Mixed values") : root.text-value;
+        enabled: root.enabled;
+        horizontal-alignment: right;
+        accessible-label: root.label;
+        accessible-description: root.mixed ? @tr("Objects disagree") : "";
+        accepted(value) => { if !root.mixed { root.commit(value); } }
+    }
+}
+
 export component ObjectSettingRow inherits Rectangle {
     in property <ObjectSettingRowData> row-data;
     callback activate-effect(bool, int);
@@ -448,7 +475,7 @@ export component ObjectSettingRow inherits Rectangle {
         : root.row-data.row-kind == "effect" ? 34px
         : root.row-data.row-kind == "header" ? 28px
         : root.row-data.row-kind == "text" ? 68px
-        : root.row-data.row-kind == "keyframes" ? (root.row-data.keyframed ? 24px : 0px)
+        : root.row-data.row-kind == "keyframes" ? (root.row-data.keyframed && !root.row-data.mixed ? 24px : 0px)
         : 34px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
@@ -521,25 +548,52 @@ export component ObjectSettingRow inherits Rectangle {
     if root.row-data.row-kind == "boolean" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
-        CheckBox {
-            text: root.row-data.label;
-            checked: root.row-data.checked;
-            enabled: root.row-data.interactive;
-            // A widget writes its own `checked` property on interaction, which
-            // drops the binding to the row. Mirror the projection through a
-            // private property so a replaced row (undo, preset, keyframes under
-            // the playhead) is applied again instead of leaving the last
-            // clicked state on screen.
-            private property <bool> projected: root.row-data.checked;
-            changed projected => { self.checked = self.projected; }
-            toggled => {
-                root.set-bool(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    self.checked
-                );
+        // A mixed boolean is a third state, not "unchecked": clicking it must
+        // write one value to every object instead of leaving them disagreeing.
+        tri-boolean := Rectangle {
+            height: 26px;
+            horizontal-stretch: 1;
+            accessible-role: checkbox;
+            accessible-label: root.row-data.label;
+            accessible-description: root.row-data.mixed ? @tr("Mixed values") : "";
+            accessible-checked: root.row-data.checked && !root.row-data.mixed;
+            Text {
+                x: 24px;
+                text: root.row-data.label + (root.row-data.mixed ? "  (" + @tr("Mixed values") + ")" : "");
+                vertical-alignment: center;
+                color: root.row-data.interactive ? AppTheme.foreground : AppTheme.muted-foreground;
+            }
+            Rectangle {
+                x: 4px;
+                y: 4px;
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: root.row-data.mixed ? AppTheme.warning : root.row-data.checked ? AppTheme.accent : AppTheme.border;
+                background: root.row-data.mixed ? AppTheme.warning.transparentize(0.6)
+                    : root.row-data.checked ? AppTheme.accent : AppTheme.control-background;
+                Text {
+                    text: root.row-data.mixed ? "—" : root.row-data.checked ? "✓" : "";
+                    color: white;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            toggle-touch := TouchArea {
+                width: 100%;
+                enabled: root.row-data.interactive;
+                mouse-cursor: pointer;
+                clicked => {
+                    root.set-bool(
+                        root.row-data.audio-plugin,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        !root.row-data.checked
+                    );
+                }
             }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -596,17 +650,13 @@ export component ObjectSettingRow inherits Rectangle {
                 }
             }
         }
-        ScrubNumberEdit {
+        OverlayNumber {
             width: 70px;
             height: 26px;
-            source-text: root.row-data.text-value;
+            mixed: root.row-data.mixed;
+            text-value: root.row-data.text-value;
             enabled: root.row-data.interactive;
             label: root.row-data.label + @tr(" start value");
-            value: root.row-data.number-value;
-            minimum: root.row-data.minimum;
-            maximum: root.row-data.maximum;
-            step: root.row-data.step;
-            integer: root.row-data.row-kind == "integer";
             preview(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
@@ -614,8 +664,6 @@ export component ObjectSettingRow inherits Rectangle {
                     root.set-start-number(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame, value);
                 }
             }
-            finish-edit => { root.finish-edit(); }
-            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -625,12 +673,19 @@ export component ObjectSettingRow inherits Rectangle {
                     value
                 );
             }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
+        }
+        if root.row-data.mixed : Text {
+            text: @tr("Mixed values");
+            color: AppTheme.warning;
+            vertical-alignment: center;
         }
         if root.row-data.audio-plugin : Button {
             width: 24px;
             height: 26px;
             text: "K";
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && !root.row-data.mixed;
             accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
             clicked => {
                 root.seed-keyframes(
@@ -734,8 +789,13 @@ export component ObjectSettingRow inherits Rectangle {
             color: AppTheme.muted-foreground;
             vertical-alignment: center;
         }
-        if root.row-data.keyframed : Text {
+        if root.row-data.keyframed && !root.row-data.mixed : Text {
             text: "KF";
+            color: AppTheme.warning;
+            vertical-alignment: center;
+        }
+        if root.row-data.mixed : Text {
+            text: @tr("Mixed keyframes");
             color: AppTheme.warning;
             vertical-alignment: center;
         }
@@ -750,7 +810,7 @@ export component ObjectSettingRow inherits Rectangle {
             width: 220px;
             height: 26px;
             model: root.row-data.option-labels;
-            current-index: root.row-data.selected-option;
+            current-index: root.row-data.mixed ? -1 : root.row-data.selected-option;
             enabled: root.row-data.interactive;
             private property <int> projected: root.row-data.selected-option;
             changed projected => { self.current-index = self.projected; }
@@ -764,6 +824,7 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        if root.row-data.mixed : Text { text: @tr("Mixed values"); color: AppTheme.warning; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
@@ -807,7 +868,7 @@ export component ObjectSettingRow inherits Rectangle {
         CommitLineEdit {
             height: 26px;
             horizontal-stretch: 1;
-            source-text: root.row-data.text-value;
+            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             commit(value) => {
                 root.set-text(
@@ -846,7 +907,7 @@ export component ObjectSettingRow inherits Rectangle {
         Button {
             horizontal-stretch: 1;
             height: 26px;
-            text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
+            text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
             clicked => {
@@ -908,7 +969,7 @@ export component ObjectSettingRow inherits Rectangle {
         CommitLineEdit {
             width: 82px;
             height: 26px;
-            source-text: root.row-data.text-value;
+            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: center;
             commit(value) => {
@@ -925,7 +986,7 @@ export component ObjectSettingRow inherits Rectangle {
             visible: !root.row-data.audio-plugin;
             height: 26px;
             text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && !root.row-data.mixed;
             clicked => {
                 root.open-easing(
                     root.row-data.effect-index,
@@ -936,7 +997,7 @@ export component ObjectSettingRow inherits Rectangle {
             }
         }
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
-        if root.row-data.range-mode : CommitLineEdit {
+        if root.row-data.range-mode && !root.row-data.mixed : CommitLineEdit {
             width: 82px;
             height: 26px;
             source-text: root.row-data.end-text-value;
@@ -994,7 +1055,7 @@ export component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "keyframes" && root.row-data.keyframed : KeyframeTrack {
+    if root.row-data.row-kind == "keyframes" && root.row-data.keyframed && !root.row-data.mixed : KeyframeTrack {
         row-data: root.row-data;
         seek(frame) => { root.seek-keyframe(frame); }
         snap(frame) => { root.snap-keyframe(frame) }

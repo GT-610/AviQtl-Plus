@@ -1,0 +1,259 @@
+import { MediaBinEntryData, MediaBinGroupData } from "models.slint";
+import { Button, ComboBox, LineEdit, ScrollView, SpinBox } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component MediaBinPanel inherits Rectangle {
+    in property <[MediaBinEntryData]> entries;
+    in property <[MediaBinGroupData]> groups;
+    in-out property <string> filter: "";
+    in-out property <int> group-filter: -2;
+    in-out property <int> selected-id: -1;
+    // Built by the host: the two synthetic rows are not assignable groups, and their labels are
+    // translated where the rest of the list is produced.
+    in property <[string]> group-names;
+    in-out property <int> group-index: 0;
+    callback add-media();
+    callback remove-media(int);
+    callback insert-media(int, bool);
+    callback set-media-range(int, int, int);
+    callback create-group() -> int;
+    callback remove-group(int);
+    callback assign-group(int, int);
+    callback rename-group(int, string);
+    background: AppTheme.panel-background;
+
+    // The kind arrives as a stable key, so the label is translated here instead of in the host.
+    function kind-label(kind: string) -> string {
+        if kind == "video" { return @tr("Video"); }
+        if kind == "audio" { return @tr("Audio"); }
+        return @tr("Image");
+    }
+
+    // The host fills this model after the widget exists, and a combo box does not refresh its
+    // text on a row-count change alone, so the shown label is bound to both inputs.
+    function group-name(index: int) -> string {
+        if root.group-names.length == 0 { return ""; }
+        return root.group-names[index.clamp(0, root.group-names.length - 1)];
+    }
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 6px;
+        Text { text: @tr("Media Library"); font-weight: 700; }
+        HorizontalLayout {
+            height: 28px;
+            spacing: 4px;
+            Button { text: @tr("Add Media..."); clicked => { root.add-media(); } }
+            Button {
+                text: @tr("Remove");
+                enabled: root.selected-id >= 0;
+                clicked => { root.remove-media(root.selected-id); }
+            }
+        }
+        search := LineEdit {
+            placeholder-text: @tr("Search media");
+            text <=> root.filter;
+            accessible-label: @tr("Search media");
+        }
+        HorizontalLayout {
+            height: 32px;
+            spacing: 4px;
+            ComboBox {
+                horizontal-stretch: 1;
+                // The stock control is 160px wide before the "+ Group" button has room.
+                min-width: 110px;
+                model: root.group-names;
+                current-index: root.group-index;
+                current-value: root.group-name(self.current-index);
+                selected(value) => {
+                    if self.current-index <= 1 {
+                        root.group-filter = self.current-index == 0 ? -2 : -1;
+                    } else if self.current-index <= root.groups.length + 1 {
+                        root.group-filter = root.groups[self.current-index - 2].id;
+                    } else {
+                        root.group-filter = -2;
+                    }
+                }
+            }
+            Button { text: @tr("+ Group"); clicked => { root.create-group(); } }
+        }
+        if root.group-filter >= 0: HorizontalLayout {
+            height: 28px;
+            spacing: 4px;
+            Button {
+                horizontal-stretch: 1;
+                text: @tr("Rename");
+                clicked => { rename-field.visible = !rename-field.visible; }
+            }
+            Button {
+                horizontal-stretch: 1;
+                text: @tr("Remove Current Group");
+                clicked => {
+                    root.remove-group(root.group-filter);
+                    root.group-filter = -2;
+                }
+            }
+        }
+        rename-field := LineEdit {
+            visible: false;
+            placeholder-text: @tr("Group name");
+            accessible-label: @tr("Rename group");
+            accepted(value) => {
+                if value != "" && root.group-filter >= 0 {
+                    root.rename-group(root.group-filter, value);
+                }
+                self.visible = false;
+            }
+            key-pressed(event) => {
+                if event.text == Key.Escape { self.visible = false; accept } else { reject }
+            }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            min-height: 120px;
+            accessible-role: list;
+            accessible-label: @tr("Media Library");
+            VerticalLayout {
+                spacing: 4px;
+                alignment: start;
+                for entry in root.entries: Rectangle {
+                    height: 52px;
+                    border-radius: AppTheme.control-radius;
+                    background: entry.id == root.selected-id ? AppTheme.selection-background : AppTheme.raised-background;
+                    row-touch := TouchArea {
+                        accessible-role: list-item;
+                        accessible-label: entry.name;
+                        accessible-description: root.kind-label(entry.kind);
+                        accessible-item-selectable: true;
+                        accessible-item-selected: entry.id == root.selected-id;
+                        accessible-action-default => { root.selected-id = entry.id; }
+                        clicked => { root.selected-id = entry.id; }
+                        double-clicked => { root.insert-media(entry.id, false); }
+                    }
+                    HorizontalLayout {
+                        padding: 6px;
+                        spacing: 6px;
+                        // A colour bar rather than a glyph: the bundled UI font has no symbol for
+                        // these kinds, and a missing glyph renders as a box.
+                        Rectangle {
+                            width: 3px;
+                            border-radius: 1.5px;
+                            background: entry.kind == "video" ? AppTheme.accent : entry.kind == "audio" ? AppTheme.danger : AppTheme.muted-foreground;
+                        }
+                        VerticalLayout {
+                            spacing: 2px;
+                            alignment: start;
+                            Text {
+                                text: entry.name;
+                                overflow: elide;
+                                font-weight: 600;
+                                horizontal-alignment: left;
+                            }
+                            Text {
+                                text: root.kind-label(entry.kind) + " · " + (entry.out-frame - entry.in-frame) + @tr(" frames") + (entry.group-id < 0 ? "" : " · " + entry.group-name);
+                                color: AppTheme.muted-foreground;
+                                font-size: 0.75rem;
+                                overflow: elide;
+                                horizontal-alignment: left;
+                            }
+                        }
+                    }
+                }
+                if root.entries.length == 0: Text {
+                    text: @tr("No media matches this filter. Add a file or clear the search.");
+                    color: AppTheme.muted-foreground;
+                    wrap: word-wrap;
+                }
+            }
+        }
+        if root.selected-id >= 0: VerticalLayout {
+            vertical-stretch: 0;
+            alignment: start;
+            spacing: 4px;
+            for entry in root.entries: VerticalLayout {
+                vertical-stretch: 0;
+                alignment: start;
+                visible: entry.id == root.selected-id;
+                if entry.id == root.selected-id: VerticalLayout {
+                    vertical-stretch: 0;
+                    alignment: start;
+                    spacing: 4px;
+                    Text {
+                        text: entry.path;
+                        color: AppTheme.muted-foreground;
+                        overflow: elide;
+                        horizontal-alignment: left;
+                    }
+                    // One field per row: a spin box is 128px wide before it shrinks, so two of
+                    // them never fit in the 280px dock.
+                    HorizontalLayout {
+                        height: 30px;
+                        spacing: 4px;
+                        Text { text: @tr("In"); width: 32px; vertical-alignment: center; }
+                        SpinBox {
+                            horizontal-stretch: 1;
+                            minimum: 0;
+                            maximum: max(0, entry.out-frame - 1);
+                            value: entry.in-frame;
+                            accessible-label: @tr("Source in");
+                            edited(value) => {
+                                if value != entry.in-frame {
+                                    root.set-media-range(entry.id, value, entry.out-frame);
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        height: 30px;
+                        spacing: 4px;
+                        Text { text: @tr("Out"); width: 32px; vertical-alignment: center; }
+                        SpinBox {
+                            horizontal-stretch: 1;
+                            minimum: 1;
+                            maximum: entry.duration-frames;
+                            value: entry.out-frame;
+                            accessible-label: @tr("Source out");
+                            edited(value) => {
+                                if value != entry.out-frame {
+                                    root.set-media-range(entry.id, entry.in-frame, value);
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        height: 32px;
+                        spacing: 4px;
+                        Text { text: @tr("Group"); width: 32px; vertical-alignment: center; }
+                        ComboBox {
+                            horizontal-stretch: 1;
+                            model: root.group-names;
+                            current-index: entry.group-id < 0 ? 1 : entry.group-index + 2;
+                            current-value: root.group-name(self.current-index);
+                            selected(value) => {
+                                if self.current-index <= 1 {
+                                    root.assign-group(entry.id, -1);
+                                } else if self.current-index <= root.groups.length + 1 {
+                                    root.assign-group(entry.id, root.groups[self.current-index - 2].id);
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        height: 30px;
+                        spacing: 4px;
+                        Button {
+                            horizontal-stretch: 1;
+                            text: @tr("Insert at Playhead");
+                            clicked => { root.insert-media(entry.id, false); }
+                        }
+                        Button {
+                            horizontal-stretch: 1;
+                            text: @tr("Overwrite");
+                            clicked => { root.insert-media(entry.id, true); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

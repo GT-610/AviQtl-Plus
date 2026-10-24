@@ -94,6 +94,13 @@ impl ObjectSettingsUi {
         }
     }
 
+    fn multi_selection(&self) -> bool {
+        self.model
+            .borrow()
+            .current_workspace()
+            .is_some_and(|workspace| workspace.selected_clip_count() > 1)
+    }
+
     pub(super) fn sync_lightweight(&self) {
         if let (Some(main), Some(timeline)) = (self.main.upgrade(), self.timeline.upgrade()) {
             let model = self.model.borrow();
@@ -124,6 +131,22 @@ impl ObjectSettingsUi {
             .cloned()
     }
 
+    /// The effect id behind a row, which is how a multi-object edit finds the same effect on
+    /// objects that stack their effects in a different order.
+    fn effect_id_for(&self, audio_plugin: bool, effect_index: usize) -> Option<String> {
+        let model = self.model.borrow();
+        let clip = model.current_workspace()?.selected_clip_document()?;
+        if audio_plugin {
+            return clip
+                .audio_plugins
+                .get(effect_index)
+                .map(|plugin| plugin.id.clone());
+        }
+        clip.effects
+            .get(effect_index)
+            .map(|effect| effect.id.clone())
+    }
+
     pub(super) fn set_value(
         &self,
         audio_plugin: bool,
@@ -132,12 +155,22 @@ impl ObjectSettingsUi {
         frame: i32,
         value: serde_json::Value,
     ) {
+        let effect_id = self.effect_id_for(audio_plugin, effect_index);
         let changed = self
             .model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
-                if audio_plugin {
+                if workspace.selected_clip_count() > 1 {
+                    let applied = if audio_plugin {
+                        workspace.set_selection_audio_param(effect_index, param_name, value)
+                    } else {
+                        effect_id
+                            .as_deref()
+                            .and_then(|id| workspace.set_selection_param(id, param_name, value))
+                    };
+                    applied.is_some()
+                } else if audio_plugin {
                     workspace.set_audio_plugin_parameter_at_frame(
                         effect_index,
                         param_name,
@@ -161,14 +194,27 @@ impl ObjectSettingsUi {
         frame: i32,
         value: serde_json::Value,
     ) -> bool {
+        let effect_id = self.effect_id_for(audio_plugin, effect_index);
         self.model
             .borrow_mut()
             .current_workspace_mut()
             .is_some_and(|workspace| {
+                let value = value.clone();
                 workspace.edit_continuously(
-                    &format!("{audio_plugin}:{effect_index}:{param_name}:{frame}"),
+                    &format!("multi:{audio_plugin}:{effect_index}:{param_name}:{frame}"),
                     |workspace| {
-                        if audio_plugin {
+                        // A continuous gesture on a multi-object selection edits every compatible
+                        // object in one undo step, just as the single-object path does.
+                        if workspace.selected_clip_count() > 1 {
+                            let applied = if audio_plugin {
+                                workspace.set_selection_audio_param(effect_index, param_name, value)
+                            } else {
+                                effect_id.as_deref().and_then(|id| {
+                                    workspace.set_selection_param(id, param_name, value)
+                                })
+                            };
+                            applied.is_some()
+                        } else if audio_plugin {
                             workspace.set_audio_plugin_parameter_at_frame(
                                 effect_index,
                                 param_name,
@@ -223,7 +269,11 @@ impl ObjectSettingsUi {
             frame,
             serde_json::Value::from(f64::from(value)),
         ) {
-            self.sync_parameter_preview(audio_plugin, effect_index, param_name);
+            if self.multi_selection() {
+                self.sync();
+            } else {
+                self.sync_parameter_preview(audio_plugin, effect_index, param_name);
+            }
         }
     }
 
@@ -508,6 +558,8 @@ pub(super) fn sync_object_settings(
         .and_then(|workspace| workspace.object_settings(catalog));
     let Some(projection) = projection else {
         window.set_has_selection(false);
+        window.set_multi_selection(false);
+        window.set_selected_object_count(0);
         window.set_clip_title(SharedString::new());
         window.set_audio_plugin_mode(false);
         window.set_selected_effect_count(0);
@@ -517,6 +569,16 @@ pub(super) fn sync_object_settings(
         return;
     };
     window.set_has_selection(true);
+    window.set_multi_selection(
+        model
+            .current_workspace()
+            .is_some_and(|workspace| workspace.selected_clip_count() > 1),
+    );
+    window.set_selected_object_count(
+        model
+            .current_workspace()
+            .map_or(0, |workspace| workspace.selected_clip_count() as i32),
+    );
     window.set_audio_plugin_mode(projection.audio_plugin_mode);
     window.set_clip_title(SharedString::from(format!(
         "{}  (ID {})",
@@ -586,6 +648,27 @@ pub(super) fn sync_object_settings(
     let mut rows = object_settings_rows(&projection);
     for row in &mut rows {
         row.folded = folded.contains(&(row.audio_plugin, row.effect_index));
+        if row.audio_plugin || row.param_name.is_empty() {
+            continue;
+        }
+        if let Some(workspace) = model.current_workspace() {
+            let effect_id = workspace
+                .selected_clip_document()
+                .and_then(|clip| clip.effects.get(row.effect_index.max(0) as usize))
+                .map(|effect| effect.id.clone())
+                .unwrap_or_default();
+            row.effect_id = SharedString::from(&effect_id);
+            match workspace.selection_param_state(&effect_id, row.param_name.as_str()) {
+                aviqtl_app::selection_edit::SelectionValue::Mixed(_) => {
+                    row.mixed = true;
+                }
+                aviqtl_app::selection_edit::SelectionValue::Absent => {
+                    row.absent = true;
+                    row.interactive = false;
+                }
+                aviqtl_app::selection_edit::SelectionValue::Uniform(_) => {}
+            }
+        }
     }
     update_vec_model(&current_rows, rows);
 }
@@ -962,9 +1045,14 @@ pub(super) fn parameter_row_updates(
             .find(|row| is_same_parameter_row(current, row))
             .cloned()
         {
-            // Folding is view state: the refreshed projection always reports
-            // the row unfolded, so keep what the user currently sees.
+            // Folding and the multi-object state are properties of the current
+            // selection, not of the primary object's single-object projection.
+            // Recompute the value preview without dropping "mixed" or "absent",
+            // or a live drag would turn a mixed field into the primary's value.
             updated.folded = current.folded;
+            updated.mixed = current.mixed;
+            updated.absent = current.absent;
+            updated.effect_id = current.effect_id.clone();
             updates.push((index, updated));
         }
     }
@@ -1035,6 +1123,9 @@ fn push_object_settings_rows(
         source_kind: SharedString::new(),
         audio_plugin,
         effect_index: index as i32,
+        effect_id: SharedString::new(),
+        mixed: false,
+        absent: false,
         param_name: SharedString::new(),
         label: SharedString::from(localized_effect_metadata(name).into_owned()),
         effect_enabled: enabled,
@@ -1100,6 +1191,9 @@ fn push_object_settings_rows(
             );
         let parameter_row = ObjectSettingRowData {
             row_kind: SharedString::from(control.kind.as_str()),
+            effect_id: SharedString::new(),
+            mixed: false,
+            absent: false,
             folded: false,
             source_kind: SharedString::from(control.source_kind.clone()),
             audio_plugin,

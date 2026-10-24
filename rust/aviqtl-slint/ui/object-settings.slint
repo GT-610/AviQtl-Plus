@@ -5,7 +5,11 @@ import { AppTheme } from "theme.slint";
 import { StereoAudioMeter } from "widgets.slint";
 
 export component ObjectSettingsWindow inherits Window {
-    title: root.has-selection ? @tr("Settings Dialog - ") + root.clip-title : @tr("Settings Dialog");
+    title: root.has-selection
+        ? (root.multi-selection
+            ? @tr("Settings Dialog - {} selected objects", root.selected-object-count)
+            : @tr("Settings Dialog - ") + root.clip_title)
+        : @tr("Settings Dialog");
     forward-focus: object-settings-shortcuts;
     preferred-width: 900px;
     preferred-height: 650px;
@@ -14,6 +18,8 @@ export component ObjectSettingsWindow inherits Window {
     in property <bool> has-selection: false;
     in property <string> clip-title: "";
     in property <bool> audio-plugin-mode: false;
+    in property <bool> multi-selection: false;
+    in property <int> selected-object-count: 1;
     in property <bool> sidebar-on-right: false;
     private property <bool> sidebar-visible: root.width >= 800px;
     private property <length> sidebar-width: 220px;
@@ -157,7 +163,19 @@ export component ObjectSettingsWindow inherits Window {
                 checked: root.sidebar-visible;
                 clicked => { root.sidebar-visible = !root.sidebar-visible; }
             }
-            Text { text: root.clip-title; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+            Text {
+                text: root.multi-selection
+                    ? @tr("{} selected objects", root.selected-object-count)
+                    : root.clip-title;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            if root.multi-selection: Text {
+                text: @tr("Properties apply to the selection");
+                color: AppTheme.muted-foreground;
+                vertical-alignment: center;
+            }
         }
         sidebar := Rectangle {
             visible: root.sidebar-visible;
@@ -283,6 +301,11 @@ export component ObjectSettingsWindow inherits Window {
                             rms-right: root.audio-rms-right;
                         }
                     }
+                }
+                if root.multi-selection: Text {
+                    text: @tr("Editing {} selected objects; objects without this property and locked objects are skipped.", root.selected-object-count);
+                    color: AppTheme.muted-foreground;
+                    wrap: word-wrap;
                 }
                 for row in root.setting-rows : ObjectSettingRow {
                     row-data: row;

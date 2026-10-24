@@ -1430,6 +1430,53 @@ fn both_windows_declare_the_same_menu_bar() {
 }
 
 #[test]
+fn a_mixed_property_row_is_distinct_from_a_uniform_one() {
+    use aviqtl_app::selection_edit::{SelectionProperty, SelectionValue};
+    // A control's rendered value must be the aggregate state, not the primary object's value.
+    // The projection pins all three states separately: the row carries `mixed`, and the token
+    // the UI prints for a mixed field is its own string, so it cannot be mistaken for a value.
+    let project = |properties: Vec<SelectionProperty>| {
+        properties
+            .iter()
+            .map(|property| {
+                let state = match property.value {
+                    SelectionValue::Uniform(_) => "",
+                    SelectionValue::Mixed(_) => "mixed",
+                    SelectionValue::Absent => "absent",
+                };
+                (property.effect_id.clone(), state)
+            })
+            .collect::<Vec<_>>()
+    };
+    let properties = vec![
+        SelectionProperty {
+            effect_id: "rect".into(),
+            param: Some("count".into()),
+            value: SelectionValue::Uniform(serde_json::json!(5)),
+            editable_objects: 3,
+        },
+        SelectionProperty {
+            effect_id: "blur".into(),
+            param: Some("size".into()),
+            value: SelectionValue::Mixed(serde_json::json!(3)),
+            editable_objects: 2,
+        },
+    ];
+    assert_eq!(
+        project(properties),
+        vec![("rect".to_owned(), ""), ("blur".to_owned(), "mixed")]
+    );
+    // Absent is not a value and never an editable row.
+    let absent = SelectionProperty {
+        effect_id: "mosaic".into(),
+        param: Some("size".into()),
+        value: SelectionValue::Absent,
+        editable_objects: 0,
+    };
+    assert_eq!(project(vec![absent]), vec![("mosaic".to_owned(), "absent")]);
+}
+
+#[test]
 fn a_recovery_failure_reaches_the_status_line_once_per_distinct_failure() {
     // Nothing to report keeps the status line alone.
     assert_eq!(crate::lifecycle::recovery_failure_status(&[]), "");

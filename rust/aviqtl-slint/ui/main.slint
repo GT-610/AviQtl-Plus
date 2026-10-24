@@ -50,6 +50,8 @@ export component MainWindow inherits Window {
     callback show-project-settings();
     callback show-system-settings();
     callback show-timeline();
+    callback show-timeline-media-library();
+    callback choose-edit-tool(string);
     callback show-object-settings();
     callback show-package-manager();
     callback show-about();
@@ -97,6 +99,12 @@ export component MainWindow inherits Window {
             title: @tr("Edit");
             MenuItem { title: @tr("Undo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[7] : root.no-shortcut; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
             MenuItem { title: @tr("Redo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[8] : root.no-shortcut; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Selection Tool"); activated => { root.choose-edit-tool("select"); } }
+            MenuItem { title: @tr("Ripple Trim"); activated => { root.choose-edit-tool("ripple"); } }
+            MenuItem { title: @tr("Roll Edit"); activated => { root.choose-edit-tool("roll"); } }
+            MenuItem { title: @tr("Slide Clip"); activated => { root.choose-edit-tool("slide"); } }
+            MenuItem { title: @tr("Slip Media"); activated => { root.choose-edit-tool("slip"); } }
         }
         Menu {
             title: @tr("Settings");
@@ -106,6 +114,9 @@ export component MainWindow inherits Window {
         }
         Menu {
             title: @tr("View");
+            // The media library belongs to the timeline window; this item only toggles it there,
+            // so both windows keep an identical menu bar for macOS focus switching.
+            MenuItem { title: @tr("Media Library"); activated => { root.show-timeline-media-library(); } }
             MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[21] : root.no-shortcut; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
             MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[22] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
             Menu {

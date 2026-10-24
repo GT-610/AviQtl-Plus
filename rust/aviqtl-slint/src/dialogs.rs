@@ -234,6 +234,24 @@ pub(super) fn sync_font_families(window: &ObjectSettingsWindow, families: &[Stri
     );
 }
 
+pub(super) fn choose_media_files() -> Option<Vec<PathBuf>> {
+    rfd::FileDialog::new()
+        .set_title(localized(
+            "Add media to the library",
+            "添加媒体到媒体库",
+            "メディアライブラリに追加",
+        ))
+        .add_filter(
+            "Media files",
+            &[
+                "mp4", "mov", "avi", "mkv", "webm", "wmv", "wav", "mp3", "aac", "m4a", "flac",
+                "ogg", "png", "jpg", "jpeg", "bmp", "gif", "webp", "svg",
+            ],
+        )
+        .add_filter("All Files", &["*"])
+        .pick_files()
+}
+
 pub(super) fn choose_project_to_open() -> Option<PathBuf> {
     project_file_dialog().pick_file()
 }

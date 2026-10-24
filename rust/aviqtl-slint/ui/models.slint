@@ -64,6 +64,33 @@ export struct TimelineClipData {
     clip-by-upper-object: bool,
     selected: bool,
     primary: bool,
+    midpoints: [int],
+}
+
+export struct MediaBinGroupData {
+    id: int,
+    name: string,
+}
+
+export struct MediaBinEntryData {
+    id: int,
+    path: string,
+    name: string,
+    kind: string,
+    group-id: int,
+    group-name: string,
+    group-index: int,
+    duration-frames: int,
+    in-frame: int,
+    out-frame: int,
+    selected: bool,
+}
+
+export struct TimelineToolFeedback {
+    valid: bool,
+    start: int,
+    duration: int,
+    source-start: float,
 }
 
 export struct LayerData {
@@ -171,6 +198,9 @@ export struct EasingCatalogRowData {
 }
 
 export struct ObjectSettingRowData {
+    effect-id: string,
+    mixed: bool,
+    absent: bool,
     folded: bool,
     row-kind: string,
     source-kind: string,
