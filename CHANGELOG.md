@@ -5,6 +5,15 @@ All notable changes to AviQtl-Plus are documented in this file.
 ## [Unreleased]
 
 ### Added
+- The batch 4 editing model now has its interface. The timeline carries a docked
+  **Media Library** with source in/out points, flat groups, search, insert, and
+  overwrite; clips show draggable object midpoints; ripple, roll, slide, and slip
+  are one-shot tools in the scene strip with a live outline and a slip source-in
+  readout; and a multiple selection shows each object property as uniform,
+  mixed, or absent. A mixed parameter edit applies to every selected object that
+  has it, skips objects that do not, treats locked layers as skipped, and remains
+  one undo step. The library's overwrite replaces exactly the covered range and
+  refuses a locked layer, and every bin insert honours the stored source range.
 - The application takes a project path on the command line, so a file manager, a
   shell, or a `open`/`xdg-open` hand-off lands on the project instead of on an
   empty launcher. `--help` prints the options and `--version` prints the version
