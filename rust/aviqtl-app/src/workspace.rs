@@ -2757,12 +2757,10 @@ impl WorkspaceModel {
         self.apply_selection_plan(plan)
     }
 
-    /// Applies one audio plugin parameter to every selected object that has that plugin at that
-    /// index, as a single undo step.
-    ///
-    /// Audio plugins have no id-based identity, so the index is the identity and this cannot share
-    /// the effect-id path above.
     /// What the selection's audio-plugin parameter looks like, for a three-state row.
+    ///
+    /// Audio plugins have no id-based identity, so the index is the identity here, exactly as it is
+    /// for the edit below.
     pub fn selection_audio_param_state(&self, plugin_index: usize, param: &str) -> SelectionValue {
         let clips = self.selected_clips();
         crate::selection_edit::selection_audio_param_value(
@@ -2773,6 +2771,11 @@ impl WorkspaceModel {
         )
     }
 
+    /// Applies one audio plugin parameter to every selected object that has that plugin at that
+    /// index, as a single undo step.
+    ///
+    /// Audio plugins have no id-based identity, so the index is the identity and this cannot share
+    /// the effect-id path above.
     pub fn set_selection_audio_param(
         &mut self,
         plugin_index: usize,
