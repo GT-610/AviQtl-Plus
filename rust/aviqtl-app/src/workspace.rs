@@ -3440,12 +3440,24 @@ impl WorkspaceModel {
                 })
                 .cloned()
                 .collect::<Vec<_>>();
-            if let Some(clip) = overlapping.iter().find(|clip| self.is_clip_locked(clip)) {
+            // Every layer the block lands on has to be writable, not just the ones that already
+            // hold a clip in the range: an empty locked audio layer under a video is still locked,
+            // and the linked audio half would otherwise be inserted onto it.
+            let locked = self
+                .project
+                .document
+                .scenes
+                .iter()
+                .find(|scene| scene.id == scene_id)
+                .map(|scene| scene.locked_layers.as_slice())
+                .unwrap_or_default();
+            if let Some(locked_layer) = overwrite_layers.iter().find(|layer| locked.contains(layer))
+            {
                 self.set_status(status_message!(
                     "Layer {} is locked",
                     "图层 {} 已锁定",
                     "レイヤー {} はロックされています",
-                    clip.layer + 1
+                    locked_layer + 1
                 ));
                 return None;
             }
@@ -5909,6 +5921,34 @@ mod tests {
         assert!(
             workspace.document().clips.iter().all(|clip| clip.id <= 3),
             "the replacement and the split tail are gone again"
+        );
+
+        std::fs::remove_file(path).expect("temporary media placeholder is removable");
+    }
+
+    #[test]
+    fn overwrite_refuses_a_locked_layer_that_only_the_linked_audio_would_use() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace_with_row();
+        // A video entry writes a video clip on the requested layer and a linked audio clip one
+        // layer below it. Layer 1 is empty here, so nothing overlaps it and only the target-layer
+        // check can notice that the lock would be written through.
+        let path = temporary_media_file("mp4");
+        workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 20);
+        let id = workspace.media_bin().entries()[0].id;
+        assert!(workspace.toggle_layer_lock(1));
+
+        let revision = workspace.document_revision();
+        assert!(
+            workspace
+                .insert_media_from_bin(id, 0, 0, 8, &catalog, true)
+                .is_none()
+        );
+        assert!(workspace.status().contains("Layer 2 is locked"));
+        assert_eq!(
+            workspace.document_revision(),
+            revision,
+            "a locked linked layer must be refused before anything is written"
         );
 
         std::fs::remove_file(path).expect("temporary media placeholder is removable");
