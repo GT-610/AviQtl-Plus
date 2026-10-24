@@ -3456,7 +3456,7 @@ impl WorkspaceModel {
                     (clip.start < start) as usize + (clip_end > end) as usize
                 })
                 .sum::<usize>();
-            let mut ids = if splits == 0 {
+            let ids = if splits == 0 {
                 Vec::new()
             } else {
                 match self.project.state.reserve_clip_ids(splits) {
@@ -3467,12 +3467,12 @@ impl WorkspaceModel {
                     }
                 }
             };
-            let mut ids = ids.drain(..);
+            let mut ids = ids.into_iter();
             for clip in &overlapping {
                 let clip_end = clip.start.saturating_add(clip.duration);
-                let head_split =
-                    (clip.start < start).then(|| (start, ids.next().unwrap_or_default()));
-                let tail_split = (clip_end > end).then(|| (end, ids.next().unwrap_or_default()));
+                let mut take_id = || ids.next().expect("one reserved id per crossing");
+                let head_split = (clip.start < start).then(|| (start, take_id()));
+                let tail_split = (clip_end > end).then(|| (end, take_id()));
                 pieces.push(OverwritePiece {
                     clip_id: clip.id,
                     head_split,
