@@ -4,6 +4,52 @@ All notable changes to AviQtl-Plus are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- The application takes a project path on the command line, so a file manager, a
+  shell, or a `open`/`xdg-open` hand-off lands on the project instead of on an
+  empty launcher. `--help` prints the options and `--version` prints the version
+  instead of both being rejected as unknown arguments
+
+### Fixed
+- An object whose `transform` effect omits a parameter - `scale`, `opacity`, a
+  rotation - keeps AviUtl's value for it instead of falling to zero. A transform
+  that carried only its offsets used to draw the object at scale 0, so a project
+  made only of shapes and generated objects previewed and exported a flat frame,
+  and an export looked broken until some video or image happened to fill the frame
+- The menu bar belongs to the focused window, so the timeline window now declares
+  the same File/Edit/Settings/View/Tools bar as the preview window. Previously the
+  menus disappeared while the timeline was key, which is exactly when the editor is
+  being used. Every item runs the command the preview window already owns, the
+  accelerators step aside while a popup holds a text field, and the project items
+  grey out with the same conditions on both windows
+- The status line speaks the interface language. A status is one sentence in
+  English, Simplified Chinese, and Japanese, composed next to the command that
+  produces it instead of in the window that shows it, so `Ready`, `Edit applied`,
+  the split refusal, and 71 further sentences no longer appear in English inside
+  a translated interface. Text that comes from elsewhere, such as an error from the
+  core, is still reported unchanged
+- A newly inserted text object starts with contents in the interface language
+  instead of AviUtl's Japanese `テキスト`; the object metadata keeps AviUtl's
+  default, which a script insert and a project opened from AviUtl still use
+- A recovery snapshot that stops being written is reported in the status bar once
+  per distinct failure instead of only in a window that is not on screen while a
+  project is open. The warning is also withdrawn once the snapshot is written
+  again, and it is compared by the whole failure list, so a changed second failure
+  is not mistaken for a repeat
+- The menu bar's accelerators stay out of the way on the timeline while the zoom
+  box or one of the layer dialogs holds the keyboard, so Ctrl/Cmd+Z edits that
+  field instead of undoing the project
+- A layout command from the timeline menu acts on the timeline's screen, so
+  "Bring editor windows onto this screen" no longer pulls the editor to the
+  preview window's monitor when the two are on different displays
+- Window layouts are applied in physical pixels computed from one monitor's
+  scale, so a window that lands on a display with a different scaling factor
+  keeps the size and place the layout gave it instead of being doubled or halved.
+  A saved layout is captured in that same scale, so restoring it on another
+  display keeps its proportions too
+- The timeline refuses to split a selection it cannot split with a translated
+  sentence rather than an English one
+
 ## [0.7.0-rc.1] - 2026-10-22
 
 ### Added

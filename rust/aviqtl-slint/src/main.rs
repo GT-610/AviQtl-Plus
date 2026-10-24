@@ -30,10 +30,13 @@ use crate::export::{
     update_export,
 };
 use crate::gpu::{
-    AppGpu, GpuValidation, LaunchOptions, VALIDATION_PROJECT, WindowKind, describe_adapters,
-    has_gpu_backed_adapter, install_render_probe, missing_gpu_message, parse_launch_options,
+    AppGpu, GpuValidation, LaunchOptions, ParsedLaunch, VALIDATION_PROJECT, WindowKind,
+    describe_adapters, has_gpu_backed_adapter, install_render_probe, missing_gpu_message,
+    parse_launch_options,
 };
-use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
+use crate::lifecycle::{
+    LifecycleUi, WindowRefs, recovery_failure_status, sync_launcher, sync_recovery_window,
+};
 use crate::localization::select_bundled_ui_translation;
 use crate::object_settings::{
     ObjectSettingsSyncKey, initialize_timeline_object_catalog, object_settings_sync_key,
@@ -74,7 +77,16 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let LaunchOptions { validation_frames } = parse_launch_options()?;
+    let LaunchOptions {
+        validation_frames,
+        project_path,
+    } = match parse_launch_options()? {
+        ParsedLaunch::Run(options) => options,
+        ParsedLaunch::Help(text) => {
+            print!("{text}");
+            return Ok(());
+        }
+    };
     // Fail with an explanation instead of an access violation when the host has
     // no GPU-backed wgpu adapter. The compositor's effect shader cannot be
     // compiled on a CPU adapter, so the launch cannot proceed at all.
@@ -299,6 +311,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         quit_confirmed: Cell::new(false),
     });
     lifecycle_ui.sync_live_settings();
+    // A project named on the command line is opened later, once the launcher is
+    // on screen; see the branch below that shows the launcher first.
+    let cli_project_ui = lifecycle_ui.clone();
     install_callbacks(
         WindowRefs {
             launcher: &launcher,
@@ -423,6 +438,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         show_and_redraw(&launcher)?;
         if !model.borrow().recovery_entries().is_empty() {
             show_and_redraw(&recovery)?;
+        }
+        // A project named on the command line opens once the launcher is up, so a
+        // file manager handing over a `.aviqtl` file lands on the project instead
+        // of an empty launcher - and a path that fails to open still leaves the
+        // launcher on screen with its error dialog rather than nothing at all.
+        if let Some(path) = project_path.as_deref() {
+            cli_project_ui.open_project_path(path, true);
         }
     }
 
@@ -749,17 +771,52 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let recovery_timer = Timer::default();
     let recovery_model = model.clone();
     let recovery_window = recovery.as_weak();
+    let recovery_main = main.as_weak();
+    let recovery_timeline = timeline.as_weak();
+    // The loop runs once a second. A write that keeps failing must not overwrite
+    // the status line every second with the same sentence, so the loop compares
+    // the whole reported list - a shortened status can hide a changed second
+    // failure - and a failure that clears is withdrawn again.
+    let reported_recovery_failure: Rc<RefCell<Option<Vec<String>>>> = Rc::new(RefCell::new(None));
     recovery_timer.start(TimerMode::Repeated, Duration::from_secs(1), move || {
         let errors = recovery_model.borrow_mut().update_recovery();
-        if errors.is_empty() {
+        if reported_recovery_failure.borrow().as_deref() == Some(errors.as_slice()) {
             return;
         }
-        for error in &errors {
-            eprintln!("Project recovery failed: {error}");
+        let previous = std::mem::replace(
+            &mut *reported_recovery_failure.borrow_mut(),
+            (!errors.is_empty()).then(|| errors.clone()),
+        );
+        if errors.is_empty() {
+            // The snapshot is being written again, so the warning is withdrawn:
+            // the recovery window drops the error it still lists, and the status
+            // line goes back to the workspace status - unless something newer has
+            // taken it over in the meantime.
+            let Some(previous) = previous else {
+                return;
+            };
+            let reported = recovery_failure_status(&previous);
+            if let Some(window) = recovery_window.upgrade() {
+                window.set_error_message(SharedString::new());
+            }
+            if let (Some(main), Some(timeline)) =
+                (recovery_main.upgrade(), recovery_timeline.upgrade())
+                && main.get_status_text().as_str() == reported
+            {
+                sync_transport(&main, &timeline, &recovery_model.borrow());
+            }
+            return;
         }
+        let status = recovery_failure_status(&errors);
+        eprintln!("{status}");
         if let Some(window) = recovery_window.upgrade() {
             sync_recovery_window(&window, &recovery_model.borrow());
             window.set_error_message(SharedString::from(errors.join("\n")));
+        }
+        // A recovery failure is otherwise invisible while a project is open, which
+        // is exactly when the lost snapshot would matter.
+        if let Some(window) = recovery_main.upgrade() {
+            window.set_status_text(SharedString::from(status));
         }
     });
 

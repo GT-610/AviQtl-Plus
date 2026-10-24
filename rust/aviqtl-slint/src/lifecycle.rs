@@ -127,8 +127,19 @@ pub(super) fn show_fragment_report(model: &mut ApplicationModel) {
     );
 }
 
+/// The window whose menu asked for a workspace layout change.
+///
+/// "Bring editor windows onto this screen" has to mean the screen the menu was
+/// opened on: with the timeline on a second monitor, the preview's monitor is
+/// the wrong answer. Only windows that carry a menu bar appear here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum WorkspaceOrigin {
+    Main,
+    Timeline,
+}
+
 impl LifecycleUi {
-    pub(super) fn workspace_action(&self, action: &str) {
+    pub(super) fn workspace_action(&self, action: &str, origin: WorkspaceOrigin) {
         let (Some(main), Some(timeline), Some(objects)) = (
             self.main.upgrade(),
             self.timeline.upgrade(),
@@ -141,13 +152,29 @@ impl LifecycleUi {
             ("timeline", timeline.window()),
             ("objectSettings", objects.window()),
         ];
+        let origin_window = match origin {
+            WorkspaceOrigin::Main => main.window(),
+            WorkspaceOrigin::Timeline => timeline.window(),
+        };
+        // The menu that was used decides the screen; the preview window is only
+        // the fallback for a window that has no monitor yet. The monitor's own
+        // scale factor is what the whole layout is expressed in, saving it as
+        // well as applying it, so a layout saved on one display and restored on
+        // another keeps its proportions.
+        let (screen, reference_scale) = monitor_screen(origin_window)
+            .or_else(|| monitor_screen(main.window()))
+            .unwrap_or((crate::dialogs::WindowGeometry::new(32, 48, 1280, 800), 1.0));
         if action == "save" {
             let mut layout = serde_json::Map::new();
             for (id, window) in windows {
                 layout.insert(
                     id.into(),
                     serde_json::json!({
-                        "geometry": crate::dialogs::WindowGeometry::capture(window).json(),
+                        "geometry": crate::dialogs::WindowGeometry::capture_at(
+                            window,
+                            reference_scale,
+                        )
+                        .json(),
                         "visible": window.is_visible(),
                     }),
                 );
@@ -162,38 +189,14 @@ impl LifecycleUi {
             }
             return;
         }
-        let screen = main
-            .window()
-            .with_winit_window(|window| {
-                window.current_monitor().map(|monitor| {
-                    let scale = monitor.scale_factor();
-                    let position = monitor.position().to_logical::<i32>(scale);
-                    let size = monitor.size().to_logical::<i32>(scale);
-                    crate::dialogs::WindowGeometry::new(
-                        position.x + 12,
-                        position.y + 36,
-                        (size.width - 24).max(1),
-                        (size.height - 100).max(1),
-                    )
-                })
-            })
-            .flatten()
-            .unwrap_or(crate::dialogs::WindowGeometry::new(32, 48, 1280, 800));
         let defaults = editor_layout(screen, "editing");
         if action == "recover-screen" {
             for ((_, window), fallback) in windows.iter().zip(defaults) {
-                let current = crate::dialogs::WindowGeometry::capture(window);
+                let current = crate::dialogs::WindowGeometry::capture_at(window, reference_scale);
                 let Some(geometry) = recover_window_geometry(current, screen, fallback) else {
                     continue;
                 };
-                window.set_size(slint::LogicalSize::new(
-                    geometry.width as f32,
-                    geometry.height as f32,
-                ));
-                window.set_position(slint::LogicalPosition::new(
-                    geometry.x as f32,
-                    geometry.y as f32,
-                ));
+                apply_window_geometry(window, geometry, reference_scale);
             }
             return;
         }
@@ -221,15 +224,7 @@ impl LifecycleUi {
             geometry.y = geometry
                 .y
                 .clamp(screen.y, screen.y + screen.height - geometry.height);
-            window.set_maximized(false);
-            window.set_size(slint::LogicalSize::new(
-                geometry.width as f32,
-                geometry.height as f32,
-            ));
-            window.set_position(slint::LogicalPosition::new(
-                geometry.x as f32,
-                geometry.y as f32,
-            ));
+            apply_window_geometry(window, geometry, reference_scale);
             if saved_window
                 .and_then(|entry| entry.get("visible"))
                 .and_then(serde_json::Value::as_bool)
@@ -254,10 +249,15 @@ impl LifecycleUi {
 
     pub(super) fn handle(&self, mut step: LifecycleStep) {
         loop {
-            if !matches!(step, LifecycleStep::ConfirmSave { .. })
-                && let Some(main) = self.main.upgrade()
-            {
-                main.set_save_confirmation_visible(false);
+            if !matches!(step, LifecycleStep::ConfirmSave { .. }) {
+                if let Some(main) = self.main.upgrade() {
+                    main.set_save_confirmation_visible(false);
+                }
+                // The timeline window carries its own menu bar; the items that act
+                // on the project have to grey out with the preview window's.
+                if let Some(timeline) = self.timeline.upgrade() {
+                    timeline.set_save_confirmation_visible(false);
+                }
             }
 
             match step {
@@ -268,6 +268,9 @@ impl LifecycleUi {
                         main.set_save_confirmation_project(project_name.into());
                         main.set_save_confirmation_visible(true);
                         let _ = show_and_redraw(&main);
+                    }
+                    if let Some(timeline) = self.timeline.upgrade() {
+                        timeline.set_save_confirmation_visible(true);
                     }
                     return;
                 }
@@ -518,9 +521,27 @@ impl LifecycleUi {
             return;
         }
         let status = if report.selection_only {
-            format!("Exported {} selected clip(s) to a fragment", report.clips)
+            format!(
+                "{} {} {}",
+                localized("Exported", "已导出", "書き出しました："),
+                report.clips,
+                localized(
+                    "selected clip(s) to a fragment",
+                    "个选中的片段到片段文件",
+                    "件の選択クリップをフラグメントへ"
+                )
+            )
         } else {
-            format!("Exported {} clip(s) to a fragment", report.clips)
+            format!(
+                "{} {} {}",
+                localized("Exported", "已导出", "書き出しました："),
+                report.clips,
+                localized(
+                    "clip(s) to a fragment",
+                    "个片段到片段文件",
+                    "件のクリップをフラグメントへ"
+                )
+            )
         };
         if let Some(main) = self.main.upgrade() {
             main.set_status_text(status.as_str().into());
@@ -832,6 +853,74 @@ impl LifecycleUi {
     }
 }
 
+/// The usable area of the screen a window currently sits on, together with that
+/// screen's scale factor.
+///
+/// The area is in the screen's own logical pixels, which is the space
+/// `editor_layout` works in. A window that has not been mapped yet reports no
+/// monitor, which is why the caller has a fallback.
+fn monitor_screen(window: &slint::Window) -> Option<(crate::dialogs::WindowGeometry, f32)> {
+    window
+        .with_winit_window(|window| {
+            window.current_monitor().map(|monitor| {
+                // winit reports the monitor's scale as `f64`; Slint measures
+                // windows in `f32`.
+                let monitor_scale = monitor.scale_factor();
+                let position = monitor.position().to_logical::<i32>(monitor_scale);
+                let size = monitor.size().to_logical::<i32>(monitor_scale);
+                (
+                    crate::dialogs::WindowGeometry::new(
+                        position.x + 12,
+                        position.y + 36,
+                        (size.width - 24).max(1),
+                        (size.height - 100).max(1),
+                    ),
+                    monitor_scale as f32,
+                )
+            })
+        })
+        .flatten()
+}
+
+/// Moves and resizes a window to a geometry expressed in `reference_scale`
+/// logical pixels.
+///
+/// Slint measures a window in physical pixels but applies `LogicalPosition` and
+/// `LogicalSize` with the scale factor of the window being moved, so a layout
+/// computed on one monitor comes out at the wrong size and place on a window
+/// that sits on a monitor with a different scale. Converting to physical pixels
+/// here - with the one scale the layout was computed at - puts every window in
+/// the same coordinate space regardless of where it currently is.
+fn apply_window_geometry(
+    window: &slint::Window,
+    geometry: crate::dialogs::WindowGeometry,
+    reference_scale: f32,
+) {
+    let (position, size) = physical_geometry(geometry, reference_scale);
+    window.set_maximized(false);
+    window.set_size(size);
+    window.set_position(position);
+}
+
+/// Converts a geometry measured in `scale` logical pixels into the physical
+/// pixels Slint applies directly.
+pub(super) fn physical_geometry(
+    geometry: crate::dialogs::WindowGeometry,
+    scale: f32,
+) -> (slint::PhysicalPosition, slint::PhysicalSize) {
+    let scale = scale.max(f32::EPSILON);
+    (
+        slint::PhysicalPosition::new(
+            (geometry.x as f32 * scale).round() as i32,
+            (geometry.y as f32 * scale).round() as i32,
+        ),
+        slint::PhysicalSize::new(
+            (geometry.width as f32 * scale).round().max(1.0) as u32,
+            (geometry.height as f32 * scale).round().max(1.0) as u32,
+        ),
+    )
+}
+
 pub(super) fn editor_layout(
     screen: crate::dialogs::WindowGeometry,
     mode: &str,
@@ -1013,6 +1102,27 @@ pub(super) fn merge_recent_project(
     recent.insert(0, project);
     recent.truncate(maximum);
     recent
+}
+
+/// The status line a recovery write failure produces.
+///
+/// The recovery window carries the whole list; the status bar carries the first
+/// failure so someone editing when the snapshots stop being written learns about
+/// it without opening that window. `main.rs` reports each distinct message once,
+/// because the retry loop runs every second and repeats would bury the first one.
+pub(super) fn recovery_failure_status(errors: &[String]) -> String {
+    let Some(first) = errors.first() else {
+        return String::new();
+    };
+    let prefix = localized(
+        "Project recovery failed",
+        "项目恢复失败",
+        "プロジェクトの復旧に失敗しました",
+    );
+    match errors.len() {
+        1 => format!("{prefix}: {first}"),
+        count => format!("{prefix}: {first} (+{})", count - 1),
+    }
 }
 
 pub(super) fn sync_recovery_window(window: &ProjectRecoveryWindow, model: &ApplicationModel) {

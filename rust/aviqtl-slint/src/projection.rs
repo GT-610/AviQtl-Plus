@@ -1,6 +1,6 @@
 //! Shared stable-model updates and project/transport projection.
 
-use crate::localization::localized_effect_metadata;
+use crate::localization::{localized_effect_metadata, status_line};
 use crate::object_settings::finite_f32;
 use crate::{
     LayerData, MainWindow, MissingMediaData, ProjectTabData, SceneTabData, TimelineClipData,
@@ -46,6 +46,8 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
     let Some(workspace) = model.current_workspace() else {
         update_vec_model(&main.get_missing_media(), Vec::new());
         main.set_missing_media_dialog_visible(false);
+        // The timeline window's copy of the menu greys out the same item.
+        timeline.set_has_missing_media(false);
         update_vec_model(&timeline.get_scene_tabs(), Vec::new());
         update_vec_model(&timeline.get_clips(), Vec::new());
         update_vec_model(&timeline.get_layers(), Vec::new());
@@ -67,6 +69,7 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
         .collect::<Vec<_>>();
     let has_missing_media = !missing_media.is_empty();
     update_vec_model(&main.get_missing_media(), missing_media);
+    timeline.set_has_missing_media(has_missing_media);
     if !has_missing_media {
         main.set_missing_media_dialog_visible(false);
     }
@@ -186,7 +189,7 @@ pub(super) fn sync_transport(
         .clamp(10.0, 400.0) as i32;
     main.set_playback_speed_percent(speed_percent);
     main.set_playback_speed_multiplier(SharedString::from(speed_multiplier_text(speed_percent)));
-    main.set_status_text(SharedString::from(workspace.status()));
+    main.set_status_text(status_line(workspace.status(), workspace.status_message()));
     main.set_frame_counter_text(SharedString::from(frame_counter_text(
         workspace.playhead(),
         duration,

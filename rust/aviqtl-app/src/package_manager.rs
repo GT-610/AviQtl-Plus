@@ -245,6 +245,8 @@ pub struct PackageManagerModel {
     catalog: PackageCatalog,
     package_details: BTreeMap<String, Map<String, Value>>,
     status: String,
+    /// The same sentence in every interface language, when this model composed it.
+    status_message: Option<crate::status::StatusMessage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +285,7 @@ impl PackageManagerModel {
             catalog: PackageCatalog::default(),
             package_details: BTreeMap::new(),
             status: String::new(),
+            status_message: None,
         };
         model.reload_cached_packages();
         model
@@ -290,6 +293,17 @@ impl PackageManagerModel {
 
     pub fn status(&self) -> &str {
         &self.status
+    }
+
+    /// The status line in every language, when this model composed it. `None`
+    /// means the text came from somewhere that cannot be translated.
+    pub fn status_message(&self) -> Option<&crate::status::StatusMessage> {
+        self.status_message.as_ref()
+    }
+
+    fn set_status(&mut self, message: crate::status::StatusMessage) {
+        self.status = message.english().to_owned();
+        self.status_message = Some(message);
     }
 
     pub fn has_updates(&self) -> bool {
@@ -344,7 +358,11 @@ impl PackageManagerModel {
                 Err(error) => outcome.errors.push(error),
             }
         }
-        self.status = "Sync complete".to_owned();
+        self.set_status(crate::status_message!(
+            "Sync complete",
+            "同步完成",
+            "同期が完了しました"
+        ));
         outcome
     }
 
@@ -387,7 +405,11 @@ impl PackageManagerModel {
                         outcome.self_update_version = Some(version);
                     }
                     Err(error) => {
-                        self.status = "Installation failed".to_owned();
+                        self.set_status(crate::status_message!(
+                            "Installation failed",
+                            "安装失败",
+                            "インストールに失敗しました"
+                        ));
                         outcome.errors.push(error);
                     }
                 }
@@ -402,7 +424,11 @@ impl PackageManagerModel {
                         outcome.reload_script_plugins = package_type == "mod";
                     }
                     Err(error) => {
-                        self.status = "Removal failed".to_owned();
+                        self.set_status(crate::status_message!(
+                            "Removal failed",
+                            "卸载失败",
+                            "削除に失敗しました"
+                        ));
                         outcome.errors.push(error);
                     }
                 }
@@ -411,7 +437,11 @@ impl PackageManagerModel {
             PackageOperation::UpgradeAll => {
                 let package_ids = self.catalog.upgrade_ids();
                 if package_ids.is_empty() {
-                    self.status = "No packages to upgrade.".to_owned();
+                    self.set_status(crate::status_message!(
+                        "No packages to upgrade.",
+                        "没有可升级的包。",
+                        "アップグレードできるパッケージはありません。"
+                    ));
                     progress(self.status(), 1.0);
                     return outcome;
                 }
@@ -434,11 +464,20 @@ impl PackageManagerModel {
                         Err(error) => outcome.errors.push(error),
                     }
                 }
-                self.status = if outcome.errors.is_empty() {
-                    "All upgrades complete.".to_owned()
+                if outcome.errors.is_empty() {
+                    self.set_status(crate::status_message!(
+                        "All upgrades complete.",
+                        "全部升级完成。",
+                        "すべてのアップグレードが完了しました。"
+                    ));
                 } else {
-                    format!("Upgrades complete with {} error(s).", outcome.errors.len())
-                };
+                    self.set_status(crate::status_message!(
+                        "Upgrades complete with {} error(s).",
+                        "升级完成，有 {} 个错误。",
+                        "アップグレードは完了しましたが、{} 件のエラーがあります。",
+                        outcome.errors.len()
+                    ));
+                }
                 progress(self.status(), 1.0);
             }
         }
@@ -466,7 +505,11 @@ impl PackageManagerModel {
             } else {
                 requested_version.to_owned()
             };
-            self.status = "AviQtl update available. Restart to apply.".to_owned();
+            self.set_status(crate::status_message!(
+                "AviQtl update available. Restart to apply.",
+                "AviQtl 有可用更新。重启后生效。",
+                "AviQtl の更新があります。再起動すると適用されます。"
+            ));
             return Ok(PackageInstallOutcome::SelfUpdate { version });
         }
         let catalog_type = text(catalog_entry.get("type"));
@@ -550,7 +593,11 @@ impl PackageManagerModel {
         self.installed = installed;
         self.catalog
             .set_installed(package_id, Some(&selection.version));
-        self.status = format!("Installation complete: {package_id}");
+        self.set_status(crate::status_message!(
+            "Installation complete: {package_id}",
+            "安装完成：{package_id}",
+            "インストール完了：{package_id}"
+        ));
         Ok(PackageInstallOutcome::Installed {
             package_id: package_id.to_owned(),
             package_type: selection.package_type,
@@ -636,7 +683,11 @@ impl PackageManagerModel {
         })?;
         self.installed = updated;
         self.catalog.set_installed(package_id, None);
-        self.status = format!("Removal complete: {package_id}");
+        self.set_status(crate::status_message!(
+            "Removal complete: {package_id}",
+            "卸载完成：{package_id}",
+            "削除完了：{package_id}"
+        ));
         Ok(package_type)
     }
 
@@ -704,11 +755,15 @@ impl PackageManagerModel {
             );
             loaded += 1;
         }
-        self.status = if loaded == 0 {
-            "Idle".to_owned()
+        if loaded == 0 {
+            self.set_status(crate::status_message!("Idle", "空闲", "待機中"));
         } else {
-            "Packages loaded from cache (Press Sync to check for updates)".to_owned()
-        };
+            self.set_status(crate::status_message!(
+                "Packages loaded from cache (Press Sync to check for updates)",
+                "已从缓存载入包列表（按同步检查更新）",
+                "キャッシュからパッケージを読み込みました（同期で更新を確認できます）"
+            ));
+        }
     }
 
     pub fn add_repository(

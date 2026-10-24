@@ -447,6 +447,100 @@ mod tests {
         assert_eq!(scaled_preview_size((0, 0), f32::NAN), (1, 1));
     }
 
+    /// A scene made only of generated objects - no video, no image - must still
+    /// compose the object's pixels. The export path composes the same decoded
+    /// scene this reads back, so a blank frame here is a blank exported frame.
+    ///
+    /// The transform carries only its offsets on purpose: a transform that omits
+    /// `scale` and `opacity` used to render at scale 0, which made an
+    /// object-only project export a flat frame.
+    #[test]
+    #[ignore = "requires a real GPU adapter"]
+    fn a_scene_of_generated_objects_alone_composes_visible_pixels() {
+        use aviqtl_rust_core::api::TimelineState;
+
+        let instance = wgpu::Instance::default();
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+        }))
+        .expect("real GPU adapter");
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
+                .expect("GPU device");
+
+        let document = serde_json::json!({
+            "version": 3,
+            "settings": {"width": 320, "height": 180, "fps": 25.0, "sampleRate": 48000},
+            "scenes": [{
+                "id": 1,
+                "name": "Root",
+                "width": 320,
+                "height": 180,
+                "fps": 25.0,
+                "duration": 100
+            }],
+            "clips": [{
+                "id": 1,
+                "sceneId": 1,
+                "type": "rect",
+                "start": 0,
+                "duration": 100,
+                "layer": 0,
+                "effects": [
+                    {"id": "transform", "enabled": true, "params": {"x": 0, "y": 0}},
+                    {"id": "rect", "enabled": true, "params": {"sizeW": 240, "sizeH": 120, "color": "#66aa99", "opacity": 1.0, "shapeType": "polygon", "sides": 4}}
+                ]
+            }]
+        });
+        let bytes = serde_json::to_vec(&document).expect("fixture serializes");
+        let document = TimelineState::from_json(&bytes)
+            .expect("fixture parses")
+            .snapshot();
+
+        let mut planner = crate::scene::PreviewPlanner::new(&document, None);
+        let planned = planner
+            .build(&document, 1, 0)
+            .expect("object-only scene plans");
+        assert_eq!(
+            planned.scene.layers.len(),
+            1,
+            "the rectangle is the only layer"
+        );
+        assert_eq!((planned.scene.width, planned.scene.height), (320, 180));
+
+        let mut decoder = crate::decode::MediaPreview::new(Arc::new(|| {}));
+        decoder.request_fresh(planned.scene);
+        let batch = (0..500)
+            .find_map(|_| {
+                let batch = decoder.poll();
+                if batch.is_none() {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                batch
+            })
+            .expect("the decode worker returns a batch");
+        assert!(batch.errors.is_empty(), "{:?}", batch.errors);
+
+        let mut surface = PreviewSurface::new(device, queue);
+        surface.compose(&batch.scene, batch.generation);
+        let pixels = surface.read_rgba().expect("preview readback");
+        // The compositor clears to a near-black (0.015, 0.017, 0.022); the
+        // rectangle is #66aa99, so any composed pixel is far brighter than that.
+        let brightest = pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|pixel| *pixel.iter().take(3).max().expect("three channels"))
+            .max()
+            .expect("one pixel");
+        assert!(
+            brightest > 40,
+            "the object-only scene composed to a flat frame (brightest channel {brightest})"
+        );
+    }
+
     #[test]
     #[ignore = "requires a real GPU adapter"]
     fn scaled_msaa_preview_composes_fixed_and_complex_blends_without_validation_errors() {

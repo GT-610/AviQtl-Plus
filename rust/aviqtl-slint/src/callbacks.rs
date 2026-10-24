@@ -9,7 +9,9 @@ use crate::easing::{
     easing_options, invoke_current_easing, sync_easing_catalog, sync_easing_curve,
     sync_easing_preview,
 };
-use crate::lifecycle::{LifecycleUi, WindowRefs, sync_launcher, sync_recovery_window};
+use crate::lifecycle::{
+    LifecycleUi, WindowRefs, WorkspaceOrigin, sync_launcher, sync_recovery_window,
+};
 use crate::localization::localized;
 use crate::object_settings::{
     ObjectSettingsUi, moved_context_search_selection, sync_object_catalog, sync_object_settings,
@@ -265,9 +267,10 @@ pub(super) fn install_callbacks(
 ) {
     let system_apply_ui = lifecycle_ui.clone();
     let workspace_layout_ui = lifecycle_ui.clone();
-    windows
-        .main
-        .on_workspace_action(move |action| workspace_layout_ui.workspace_action(action.as_str()));
+    windows.main.on_workspace_action(move |action| {
+        workspace_layout_ui.workspace_action(action.as_str(), WorkspaceOrigin::Main);
+    });
+    let timeline_workspace_layout_ui = lifecycle_ui.clone();
     let model = lifecycle_ui.model.clone();
     let settings = lifecycle_ui.settings.clone();
     let effect_catalog = lifecycle_ui.effect_catalog.clone();
@@ -1751,6 +1754,9 @@ pub(super) fn install_callbacks(
                     layer.clamp(0, last_layer),
                     default_duration,
                     &catalog,
+                    // AviUtl's own default contents are Japanese; a new text object
+                    // should start in the language the interface is speaking.
+                    Some(localized("Text", "文本", "テキスト")),
                 )
             });
         sync_weak_windows(&object_add_main, &object_add_timeline, &object_add_model);
@@ -2433,6 +2439,62 @@ pub(super) fn install_callbacks(
             workspace.toggle_playback();
         }
         sync_transport_weak(&playback_main, &playback_timeline, &playback_model);
+    });
+
+    // The timeline window carries the same menu bar as the preview window, because
+    // macOS shows the menus of the focused window only; while the user edits on
+    // the timeline, the 文件/编辑/设置/显示/工具 items used to be absent entirely.
+    // Every item forwards to the command the preview window already owns, so there
+    // is still one implementation of each command.
+    let menu_target = main.as_weak();
+    macro_rules! forward_menu_item {
+        ($setter:ident => $invoke:ident) => {{
+            let target = menu_target.clone();
+            timeline.$setter(move || {
+                if let Some(main) = target.upgrade() {
+                    main.$invoke();
+                }
+            });
+        }};
+    }
+    forward_menu_item!(on_new_project => invoke_new_project);
+    forward_menu_item!(on_open_project => invoke_open_project);
+    forward_menu_item!(on_save_project => invoke_save_project);
+    forward_menu_item!(on_save_project_as => invoke_save_project_as);
+    forward_menu_item!(on_import_fragment => invoke_import_fragment);
+    forward_menu_item!(on_export_fragment => invoke_export_fragment);
+    forward_menu_item!(on_new_project_from_exo_file => invoke_new_project_from_exo_file);
+    forward_menu_item!(on_import_exo_object_file => invoke_import_exo_object_file);
+    forward_menu_item!(on_export_media => invoke_export_media);
+    forward_menu_item!(on_quit_requested => invoke_quit_requested);
+    forward_menu_item!(on_undo => invoke_undo);
+    forward_menu_item!(on_redo => invoke_redo);
+    forward_menu_item!(on_show_project_settings => invoke_show_project_settings);
+    forward_menu_item!(on_show_system_settings => invoke_show_system_settings);
+    forward_menu_item!(on_show_package_manager => invoke_show_package_manager);
+    forward_menu_item!(on_show_about => invoke_show_about);
+    // A layout command taken from the timeline menu acts on the timeline's own
+    // screen: "Bring editor windows onto this screen" means the screen the menu
+    // was opened on, not the preview window's.
+    timeline.on_workspace_action(move |action| {
+        timeline_workspace_layout_ui.workspace_action(action.as_str(), WorkspaceOrigin::Timeline);
+    });
+    // "Manage Missing Media" opens the dialog that belongs to the preview window,
+    // so the preview comes forward with it.
+    let missing_media_target = main.as_weak();
+    timeline.on_manage_missing_media(move || {
+        if let Some(main) = missing_media_target.upgrade() {
+            main.set_missing_media_dialog_visible(true);
+            let _ = show_and_redraw(&main);
+        }
+    });
+    // View -> Show Timeline from the timeline itself just brings it forward, which
+    // is what the same item does on a window that is already visible.
+    let raise_timeline = timeline.as_weak();
+    timeline.on_show_timeline(move || {
+        if let Some(timeline) = raise_timeline.upgrade() {
+            let _ = show_and_redraw(&timeline);
+        }
     });
 
     let scrub_begin_model = model.clone();

@@ -53,7 +53,19 @@ impl WindowGeometry {
     }
 
     pub(super) fn capture(window: &slint::Window) -> Self {
-        let scale_factor = window.scale_factor().max(f32::EPSILON);
+        Self::capture_at(window, window.scale_factor())
+    }
+
+    /// Captures the window in the coordinate space of `reference_scale` rather
+    /// than its own.
+    ///
+    /// Slint reports a window's position and size in physical pixels but applies
+    /// `LogicalPosition`/`LogicalSize` with the scale factor of the window being
+    /// moved, so a layout that spans monitors has to pick one space and convert
+    /// at the edges. Laying out windows against the monitor a command came from
+    /// means capturing each window in that monitor's logical space.
+    pub(super) fn capture_at(window: &slint::Window, reference_scale: f32) -> Self {
+        let scale_factor = reference_scale.max(f32::EPSILON);
         let position = window.position().to_logical(scale_factor);
         let size = window.size().to_logical(scale_factor);
         Self {

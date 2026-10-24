@@ -29,6 +29,59 @@ fn workspace_presets_keep_window_origins_on_the_current_monitor() {
     }
 }
 
+/// A layout is computed in the logical pixels of the monitor the command came
+/// from, but Slint applies `LogicalSize` with the scale of the window being
+/// moved. Handing it physical pixels instead keeps one coordinate space, so a
+/// window landing on a 2x display is the same size in points as on the 1x one it
+/// was laid out for.
+#[test]
+fn a_layout_crosses_a_scale_change_in_one_coordinate_space() {
+    let geometry = WindowGeometry::new(-1712, 36, 1680, 900);
+
+    let (position, size) = crate::lifecycle::physical_geometry(geometry, 1.0);
+    assert_eq!(position.x, -1712);
+    assert_eq!(position.y, 36);
+    assert_eq!(size.width, 1680);
+    assert_eq!(size.height, 900);
+
+    // A Retina monitor doubles both, which is exactly what the window reports
+    // back as its physical size.
+    let (position, size) = crate::lifecycle::physical_geometry(geometry, 2.0);
+    assert_eq!(position.x, -3424);
+    assert_eq!(position.y, 72);
+    assert_eq!(size.width, 3360);
+    assert_eq!(size.height, 1800);
+    // Rounding never collapses a window to nothing.
+    let (_, size) = crate::lifecycle::physical_geometry(WindowGeometry::new(0, 0, 1, 1), 0.5);
+    assert!(size.width >= 1 && size.height >= 1);
+}
+
+/// A saved layout is captured in the same space a restored one is applied in, so
+/// the two have to undo each other exactly. `capture_at` reads a window's
+/// physical pixels back through the reference scale, and this pins that the
+/// conversion `physical_geometry` applies is inverted by it.
+#[test]
+fn a_saved_layout_round_trips_through_the_reference_scale() {
+    let geometry = WindowGeometry::new(-1712, 36, 1680, 900);
+    for scale in [1.0_f32, 2.0, 1.5] {
+        let (position, size) = crate::lifecycle::physical_geometry(geometry, scale);
+        let logical_position = position.to_logical(scale);
+        let logical_size = size.to_logical(scale);
+        assert_eq!(logical_position.x.round() as i32, geometry.x, "at {scale}");
+        assert_eq!(logical_position.y.round() as i32, geometry.y, "at {scale}");
+        assert_eq!(
+            logical_size.width.round() as i32,
+            geometry.width,
+            "at {scale}"
+        );
+        assert_eq!(
+            logical_size.height.round() as i32,
+            geometry.height,
+            "at {scale}"
+        );
+    }
+}
+
 #[test]
 fn screen_recovery_moves_only_fully_off_screen_windows() {
     let screen = WindowGeometry::new(0, 0, 1000, 800);
@@ -1322,4 +1375,201 @@ fn validation_fixture_matches_the_shape_of_a_saved_project() {
             clip.clip_type
         );
     }
+}
+
+/// Extracts the item titles and the accelerator slots of the `MenuBar` block, in
+/// document order.
+fn menu_bar_signature(source: &str, file: &str) -> Vec<String> {
+    let start = source
+        .find("    MenuBar {")
+        .unwrap_or_else(|| panic!("{file} has no MenuBar"));
+    let mut depth = 0_i32;
+    let mut end = start;
+    for (index, character) in source[start..].char_indices() {
+        match character {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = start + index + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let block = &source[start..end];
+    let mut signature = Vec::new();
+    for line in block.lines() {
+        if let Some(rest) = line.split_once("title: @tr(\"") {
+            let title = rest.1.split_once("\")").expect("closed title").0;
+            signature.push(format!("title:{title}"));
+        } else if let Some(rest) = line.split_once("menu-shortcuts[") {
+            let slot = rest.1.split_once(']').expect("closed slot").0;
+            signature.push(format!("shortcut:{slot}"));
+        } else if line.trim() == "MenuSeparator { }" {
+            signature.push("separator".to_owned());
+        }
+    }
+    signature
+}
+
+/// The preview window and the timeline window each declare their own `MenuBar`,
+/// because Slint allows one per window and macOS only shows the bar of the
+/// focused window. That duplication is only safe while both bars expose the same
+/// items in the same order with the same accelerators, which this pins.
+#[test]
+fn both_windows_declare_the_same_menu_bar() {
+    let preview = menu_bar_signature(include_str!("../ui/main.slint"), "ui/main.slint");
+    let timeline = menu_bar_signature(include_str!("../ui/timeline.slint"), "ui/timeline.slint");
+    assert!(
+        preview.len() > 20,
+        "the menu bar signature looks truncated: {preview:?}"
+    );
+    assert_eq!(preview, timeline);
+}
+
+#[test]
+fn a_recovery_failure_reaches_the_status_line_once_per_distinct_failure() {
+    // Nothing to report keeps the status line alone.
+    assert_eq!(crate::lifecycle::recovery_failure_status(&[]), "");
+
+    let one = vec!["Operation not permitted (os error 1)".to_owned()];
+    let text = crate::lifecycle::recovery_failure_status(&one);
+    assert!(
+        text.contains("Operation not permitted (os error 1)"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("(+"),
+        "a single failure has no count: {text}"
+    );
+
+    let many = vec![
+        "Operation not permitted (os error 1)".to_owned(),
+        "No space left on device (os error 28)".to_owned(),
+    ];
+    let text = crate::lifecycle::recovery_failure_status(&many);
+    assert!(text.starts_with("Project recovery failed"), "{text}");
+    // The status line has room for the first failure; the rest are counted, and
+    // the recovery window still lists every one of them.
+    assert!(text.contains("Operation not permitted"), "{text}");
+    assert!(
+        text.ends_with("(+1)"),
+        "the extra failures are counted: {text}"
+    );
+
+    // The short status text cannot stand in for the failure list: a second
+    // failure that changes under the same count reads the same in the status
+    // line, which is why the loop compares the list and the recovery window is
+    // refreshed from it.
+    let changed_second = vec![
+        "Operation not permitted (os error 1)".to_owned(),
+        "Input/output error (os error 5)".to_owned(),
+    ];
+    assert_eq!(
+        crate::lifecycle::recovery_failure_status(&changed_second),
+        text
+    );
+    assert_ne!(changed_second, many);
+}
+
+/// The timeline menu bar supplies `MenuItem.shortcut`, so an accelerator that
+/// stays armed while a text field or a layer dialog owns the keyboard turns
+/// Ctrl/Cmd+Z into a project undo behind the user's cursor.
+#[test]
+fn timeline_accelerators_step_aside_for_every_keyboard_owner() {
+    let source = include_str!("../ui/timeline.slint");
+    let start = source
+        .find("private property <bool> menu-accelerators-enabled:")
+        .expect("the timeline declares the accelerator gate");
+    let expression = &source[start..start + source[start..].find(';').expect("closed expression")];
+    for owner in [
+        "context-search-visible",
+        "object-picker-visible",
+        "insert-layers-visible",
+        "shift-layers-visible",
+        "zoom-field.has-focus",
+    ] {
+        assert!(
+            expression.contains(owner),
+            "the accelerator gate ignores {owner}: {expression}"
+        );
+    }
+}
+
+#[test]
+fn the_status_bar_speaks_the_interface_language() {
+    use crate::localization::{CURRENT_UI_LANGUAGE, UiLanguage, status_line};
+
+    let message = aviqtl_app::status_message!(
+        "Layer {} is locked",
+        "图层 {} 已锁定",
+        "レイヤー {} はロックされています",
+        3
+    );
+    let rendered = |language: UiLanguage| {
+        CURRENT_UI_LANGUAGE.with(|current| current.set(language));
+        status_line("unused", Some(&message)).to_string()
+    };
+
+    assert_eq!(rendered(UiLanguage::English), "Layer 3 is locked");
+    assert_eq!(rendered(UiLanguage::SimplifiedChinese), "图层 3 已锁定");
+    assert_eq!(
+        rendered(UiLanguage::Japanese),
+        "レイヤー {} はロックされています".replace("{}", "3")
+    );
+    // Text the application layer could not compose - a core error, a path - is
+    // shown as it arrived rather than dropped.
+    assert_eq!(
+        status_line("Operation not permitted", None),
+        "Operation not permitted"
+    );
+
+    CURRENT_UI_LANGUAGE.with(|current| current.set(UiLanguage::English));
+}
+
+#[test]
+fn the_command_line_opens_a_project_and_explains_itself() {
+    use crate::gpu::{ParsedLaunch, parse_launch_args};
+
+    let parse =
+        |arguments: &[&str]| parse_launch_args(arguments.iter().map(|value| value.to_string()));
+
+    // A file manager launches the bundle with the project as the only argument.
+    let ParsedLaunch::Run(options) = parse(&["/tmp/demo.aviqtl"]).expect("a path parses") else {
+        panic!("a path should run the application");
+    };
+    assert_eq!(
+        options.project_path.as_deref(),
+        Some(std::path::Path::new("/tmp/demo.aviqtl"))
+    );
+    assert_eq!(options.validation_frames, None);
+
+    // --help and --version print instead of launching.
+    let ParsedLaunch::Help(help) = parse(&["--help"]).expect("--help parses") else {
+        panic!("--help should not launch");
+    };
+    assert!(help.contains("Usage:"), "{help}");
+    assert!(help.contains("--validate-gpu"), "{help}");
+    let ParsedLaunch::Help(version) = parse(&["--version"]).expect("--version parses") else {
+        panic!("--version should not launch");
+    };
+    assert!(version.contains(env!("CARGO_PKG_VERSION")), "{version}");
+
+    // The validation gate keeps working, and two projects are refused rather than
+    // one of them being silently dropped.
+    let ParsedLaunch::Run(options) = parse(&["--validate-gpu", "--frames", "30"]).expect("parses")
+    else {
+        panic!("the gate runs the application");
+    };
+    assert_eq!(options.validation_frames, Some(30));
+    let error = parse(&["/tmp/a.aviqtl", "/tmp/b.aviqtl"]).expect_err("two projects are refused");
+    assert!(error.contains("only one project"), "{error}");
+    let error = parse(&["--nope"]).expect_err("an unknown option is refused");
+    assert!(error.contains("unknown argument: --nope"), "{error}");
+    assert!(
+        error.contains("Usage:"),
+        "the refusal repeats the usage: {error}"
+    );
 }

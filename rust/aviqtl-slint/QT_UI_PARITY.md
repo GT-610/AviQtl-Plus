@@ -59,6 +59,26 @@ Not cleared by this session:
 - Saving and reopening, media import, export, the object settings and package windows, IME, and
   VoiceOver traversal were not exercised.
 
+### Follow-up, 2026-10-23
+
+The three defects this session recorded and could not fix are fixed, and the third of them answers
+the menu bar note above:
+
+- The timeline window now declares the same File/Edit/Settings/View/Tools bar as the preview
+  window, because macOS shows the menus of the focused window and Slint allows one `MenuBar` per
+  window. Each item forwards to the command the preview window already runs; the accelerators step
+  aside while the timeline's catalog search or object picker holds a text field. The two bars are
+  pinned by `both_windows_declare_the_same_menu_bar`, which compares their item titles,
+  separators, and accelerator slots.
+- A status is one sentence in English, Simplified Chinese, and Japanese
+  (`aviqtl-app/src/status.rs`), so the status bar no longer mixes languages. The English rendering
+  is unchanged, which the existing tests read.
+- A new text object starts with contents in the interface language; the object metadata keeps
+  AviUtl's `テキスト` for the paths that have no interface language, such as a script insert.
+
+These change no acceptance status: the menu and status rows stay `foundation` until the desktop
+suite exercises them on Windows and Linux as well as macOS.
+
 | Area | Qt behavior contract | Slint status |
 | --- | --- | --- |
 | Application shell | Launcher without a project; preview as main window; timeline and object settings as distinct F3/F4 windows | foundation |

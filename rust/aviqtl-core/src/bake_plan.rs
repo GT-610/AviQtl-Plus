@@ -1130,15 +1130,19 @@ impl BakePlan {
                     continue;
                 }
                 if effect.id == "transform" {
+                    // A transform that omits a parameter must keep AviUtl's value for
+                    // it, not fall to zero: an object saved with only `x` would
+                    // otherwise draw at scale 0 - invisible - in the preview and in an
+                    // export, while every parameter it does carry looks correct.
                     render_input.has_transform = 1;
-                    render_input.x = effect.float("x", relative_frame);
-                    render_input.y = effect.float("y", relative_frame);
-                    render_input.z = effect.float("z", relative_frame);
-                    render_input.rotation_x = effect.float("rotationX", relative_frame);
-                    render_input.rotation_y = effect.float("rotationY", relative_frame);
-                    render_input.rotation_z = effect.float("rotationZ", relative_frame);
-                    render_input.scale = effect.float("scale", relative_frame);
-                    render_input.opacity = effect.float("opacity", relative_frame);
+                    render_input.x = effect.float_or("x", 0.0, relative_frame);
+                    render_input.y = effect.float_or("y", 0.0, relative_frame);
+                    render_input.z = effect.float_or("z", 0.0, relative_frame);
+                    render_input.rotation_x = effect.float_or("rotationX", 0.0, relative_frame);
+                    render_input.rotation_y = effect.float_or("rotationY", 0.0, relative_frame);
+                    render_input.rotation_z = effect.float_or("rotationZ", 0.0, relative_frame);
+                    render_input.scale = effect.float_or("scale", 100.0, relative_frame);
+                    render_input.opacity = effect.float_or("opacity", 1.0, relative_frame);
                 }
                 let mut evaluated_params = capture_frame.then(BTreeMap::new);
                 for name in &effect.all_keys {
@@ -2238,6 +2242,46 @@ mod tests {
         let repeated = plan.compute(key);
         assert_eq!(repeated.counts.numeric_batch_calls, 0);
         assert_eq!(repeated.counts.numeric_track_count, 0);
+    }
+
+    #[test]
+    fn a_transform_that_omits_a_parameter_keeps_avutls_value() {
+        // Objects saved by an importer, a script, or an older build can carry a
+        // transform with only some of its parameters. Reading the absent ones as
+        // zero drew the object at scale 0, which is invisible in the preview and in
+        // an export while every parameter it does carry looks right.
+        let bytes = serde_json::to_vec(&json!({
+            "fps": 60.0,
+            "maxClipId": 16,
+            "clips": [{
+                "id": 3,
+                "layer": 0,
+                "startFrame": 0,
+                "durationFrames": 60,
+                "clipByUpperObject": false,
+                "type": "rect",
+                "effects": [{
+                    "id": "transform",
+                    "enabled": true,
+                    "known": true,
+                    "params": {"x": 5.0},
+                    "keyframes": {}
+                }]
+            }]
+        }))
+        .expect("serialize sparse transform fixture");
+        let mut plan = BakePlan::parse(&bytes).expect("valid plan");
+        let output = plan.compute(EvaluationKey {
+            current_frame: 30,
+            full_bake: true,
+            prefetch_frames: 0,
+        });
+        let render = output.renders.first().expect("the clip renders");
+        assert_eq!(render.x, 5.0);
+        assert_eq!(render.scale_x, 1.0, "a missing scale is 100 %, not 0 %");
+        assert_eq!(render.scale_y, 1.0);
+        assert_eq!(render.opacity, 1.0, "a missing opacity is opaque");
+        assert_eq!(render.rotation_x, 0.0);
     }
 
     #[test]
