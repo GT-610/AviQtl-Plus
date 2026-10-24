@@ -426,6 +426,7 @@ export component OverlayNumber inherits Rectangle {
     callback preview(float);
     callback finish-edit();
     callback cancel-edit();
+    private property <string> focus-text: "";
     width: 70px;
     height: 26px;
     LineEdit {
@@ -440,6 +441,20 @@ export component OverlayNumber inherits Rectangle {
             // The placeholder is not a value: Enter on an untouched mixed field must write nothing,
             // while a number the user typed has to reach the whole selection.
             if value != @tr("Mixed values") { root.commit(value); }
+        }
+        changed has-focus => {
+            // Clicking away is an edit too: a number typed and then abandoned by clicking elsewhere
+            // used to be lost. Only a change made during this visit is committed, so returning the
+            // field to where it was is not an edit and Enter does not write twice.
+            if self.has-focus {
+                root.focus-text = self.text;
+            } else {
+                let typed = self.text;
+                if typed != "" && typed != @tr("Mixed values") && typed != root.focus-text
+                    && (root.mixed || typed != root.text-value) {
+                    root.commit(typed);
+                }
+            }
         }
     }
 }
@@ -573,9 +588,13 @@ export component ObjectSettingRow inherits Rectangle {
             accessible-label: root.row-data.label;
             accessible-description: root.row-data.mixed ? @tr("Mixed values") : "";
             accessible-checked: root.row-data.checked && !root.row-data.mixed;
+            accessible-enabled: root.row-data.interactive;
             // The row itself is the accessible checkbox: putting the role on the touch area as well
-            // would nest two checkboxes and leave the reader unsure which one has the action.
-            accessible-action-default => { root.toggle-bool(); };
+            // would nest two checkboxes and leave the reader unsure which one has the action. A
+            // read-only row reports itself disabled and ignores the action instead of writing.
+            accessible-action-default => {
+                if root.row-data.interactive { root.toggle-bool(); }
+            };
             Text {
                 x: 24px;
                 text: root.row-data.label + (root.row-data.mixed ? "  (" + @tr("Mixed values") + ")" : "");
