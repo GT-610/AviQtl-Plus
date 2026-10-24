@@ -4,7 +4,7 @@ Base: `origin/main` at `634bf26`. Branch: `feat/slint-aviutl-workflow`.
 This implements the first three delivery batches of the
 [UI research](2026-09-24-slint-ui-aviutl-research.zh-CN.md), with the explicit limits below.
 The fourth batch requires separate editing-model and window-architecture design; its editing
-model landed separately and its interface followed in the 2026-10-24 `feature/batch4-ui` branch.
+model landed separately and its interface followed in #130 (2026-10-24).
 
 ## Delivered behavior
 
@@ -42,7 +42,7 @@ the saved layout are application preferences; project serialization is unchanged
 
 Object-level AviUtl midpoints, preview transform handles, media bins/source in-out points,
 multi-object property editing, ripple/roll/slip/slide tools, and integrated docking were the
-fourth batch. The 2026-10-24 branch `feature/batch4-ui` wired the editable parts: the media
+fourth batch. #130 wired the editable parts: the media
 library is docked in the timeline, midpoint handles are draggable, the four trim tools are
 one-shot commands with a shared preview/commit planner, and a multiple selection projects
 uniform/mixed/absent properties and edits every compatible object in one undo step. Integrated
