@@ -713,12 +713,23 @@ export component ObjectSettingRow inherits Rectangle {
                         root.row-data.start-frame,
                         value
                     );
-                } else {
+                } else if root.row-data.range-mode {
                     root.set-start-number(
                         root.row-data.effect-index,
                         root.row-data.param-name,
                         root.row-data.start-frame,
                         root.row-data.end-frame,
+                        value
+                    );
+                } else {
+                    // Without a keyframe track this is the plain value, and the plain path edits
+                    // every selected object; the interval-start path writes one clip and is
+                    // reserved for a track that only one object has.
+                    root.set-number(
+                        false,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
                         value
                     );
                 }
@@ -737,8 +748,10 @@ export component ObjectSettingRow inherits Rectangle {
             preview(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
-                } else {
+                } else if root.row-data.range-mode {
                     root.set-start-number(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame, value);
+                } else {
+                    root.set-number(false, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
                 }
             }
             commit(value) => {
