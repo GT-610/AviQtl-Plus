@@ -12,8 +12,10 @@ All notable changes to AviQtl-Plus are documented in this file.
   readout; and a multiple selection shows each object property as uniform,
   mixed, or absent. A mixed parameter edit applies to every selected object that
   has it, skips objects that do not, treats locked layers as skipped, and remains
-  one undo step. The library's overwrite replaces exactly the covered range and
-  refuses a locked layer, and every bin insert honours the stored source range.
+  one undo step. The library's overwrite replaces exactly the covered range,
+  splitting a clip that merely overlaps it so the part outside the range
+  survives, refuses a locked layer before changing anything, and every bin
+  insert honours the stored source range.
 - The application takes a project path on the command line, so a file manager, a
   shell, or a `open`/`xdg-open` hand-off lands on the project instead of on an
   empty launcher. `--help` prints the options and `--version` prints the version

@@ -544,7 +544,8 @@ export component TimelineClipItem inherits Rectangle {
         changed has-hover => { if !self.has-hover { root.pointer-left(); } }
     }
     if root.tool-dragging && root.edit-tool == "slip" && root.tool-local-feedback.valid : Rectangle {
-        x: root.clip-data.start * root.pixels-per-frame * 1px;
+        // The item's own origin is the clip start, so the badge belongs at zero: adding the clip
+        // position again would push it further right for every clip later in the timeline.
         y: -18px;
         height: 16px;
         width: max(root.width, 80px);
@@ -586,7 +587,10 @@ export component TimelineClipItem inherits Rectangle {
                     root.midpoint-old-frame = midpoint;
                 }
                 if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.midpoint-dragging {
-                    let frame = round((root.x + self.mouse-x) / (root.pixels-per-frame * 1px))
+                    // Midpoints are clip-local frames, and so is this pointer travel. Reading an
+                    // absolute position would mix the clip's timeline offset into the frame.
+                    let frame = (root.midpoint-old-frame
+                        + round((self.mouse-x - self.pressed-x) / (root.pixels-per-frame * 1px)))
                         .clamp(1, max(1, root.clip-data.duration - 1));
                     if frame != root.midpoint-old-frame {
                         root.midpoint-command("move", root.clip-data.id, root.midpoint-old-frame, frame);

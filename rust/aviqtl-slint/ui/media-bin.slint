@@ -230,9 +230,11 @@ export component MediaBinPanel inherits Rectangle {
                             current-index: entry.group-id < 0 ? 1 : entry.group-index + 2;
                             current-value: root.group-name(self.current-index);
                             selected(value) => {
-                                if self.current-index <= 1 {
+                                // Index 0 is "All media", a filter rather than a group: picking it
+                                // here must not silently ungroup the entry.
+                                if self.current-index == 1 {
                                     root.assign-group(entry.id, -1);
-                                } else if self.current-index <= root.groups.length + 1 {
+                                } else if self.current-index >= 2 && self.current-index <= root.groups.length + 1 {
                                     root.assign-group(entry.id, root.groups[self.current-index - 2].id);
                                 }
                             }

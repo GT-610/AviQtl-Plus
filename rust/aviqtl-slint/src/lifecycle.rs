@@ -559,6 +559,9 @@ impl LifecycleUi {
                     let _ = show_and_redraw(&main);
                 }
                 if let Some(timeline) = self.timeline.upgrade() {
+                    // Media ids belong to a project. Keeping the selection across a load would let
+                    // the panel's Remove button act on whichever entry happens to share the id.
+                    timeline.set_selected_media_id(-1);
                     let _ = show_and_redraw(&timeline);
                 }
                 if from_launcher && let Some(launcher) = self.launcher.upgrade() {

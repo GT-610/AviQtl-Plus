@@ -184,7 +184,13 @@ pub(super) fn sync_media_bin(timeline: &TimelineWindow, workspace: &aviqtl_app::
                 selected: timeline.get_selected_media_id() == entry.id,
             }
         })
-        .collect();
+        .collect::<Vec<MediaBinEntryData>>();
+    // A selection that the filter or a removal hid would leave the Remove button pointed at an
+    // entry nobody can see, so it is dropped instead of remembered.
+    let selected = timeline.get_selected_media_id();
+    if selected >= 0 && !entries.iter().any(|entry| entry.id == selected) {
+        timeline.set_selected_media_id(-1);
+    }
     update_vec_model(&timeline.get_media_entries(), entries);
     update_vec_model(
         &timeline.get_media_groups(),

@@ -436,7 +436,11 @@ export component OverlayNumber inherits Rectangle {
         horizontal-alignment: right;
         accessible-label: root.label;
         accessible-description: root.mixed ? @tr("Objects disagree") : "";
-        accepted(value) => { if !root.mixed { root.commit(value); } }
+        accepted(value) => {
+            // The placeholder is not a value: Enter on an untouched mixed field must write nothing,
+            // while a number the user typed has to reach the whole selection.
+            if value != @tr("Mixed values") { root.commit(value); }
+        }
     }
 }
 
@@ -468,6 +472,18 @@ export component ObjectSettingRow inherits Rectangle {
     function choose-easing(mode: string) {
         root.quick-easing(root.row-data.effect-index, root.row-data.param-name,
             root.row-data.start-frame, root.row-data.end-frame, mode);
+    }
+    // One flip path for the mouse, the keyboard, and the accessibility default action: the
+    // selection's agreement is not part of the value, so every activation writes the opposite of
+    // the state the objects do agree on.
+    function toggle-bool() {
+        root.set-bool(
+            root.row-data.audio-plugin,
+            root.row-data.effect-index,
+            root.row-data.param-name,
+            root.row-data.start-frame,
+            !root.row-data.checked
+        );
     }
     visible: !root.row-data.folded || root.row-data.row-kind == "effect";
     height: root.row-data.folded && root.row-data.row-kind != "effect" ? 0px
@@ -583,16 +599,32 @@ export component ObjectSettingRow inherits Rectangle {
             }
             toggle-touch := TouchArea {
                 width: 100%;
+                height: 100%;
                 enabled: root.row-data.interactive;
                 mouse-cursor: pointer;
+                accessible-role: checkbox;
+                accessible-label: root.row-data.label;
+                accessible-checked: root.row-data.checked;
+                accessible-description: root.row-data.mixed ? @tr("Objects disagree") : "";
+                accessible-action-default => { root.toggle-bool(); }
                 clicked => {
-                    root.set-bool(
-                        root.row-data.audio-plugin,
-                        root.row-data.effect-index,
-                        root.row-data.param-name,
-                        root.row-data.start-frame,
-                        !root.row-data.checked
-                    );
+                    toggle-scope.focus();
+                    root.toggle-bool();
+                }
+            }
+            // A checkbox that only answers the mouse is not a checkbox: Space and Return activate
+            // it like any other control in the dialog.
+            toggle-scope := FocusScope {
+                width: 0px;
+                height: 0px;
+                enabled: root.row-data.interactive;
+                key-pressed(event) => {
+                    if event.text == " " || event.text == "\n" {
+                        root.toggle-bool();
+                        accept
+                    } else {
+                        reject
+                    }
                 }
             }
         }
@@ -838,7 +870,7 @@ export component ObjectSettingRow inherits Rectangle {
             height: 62px;
             live-preview: true;
             horizontal-stretch: 1;
-            source-text: root.row-data.text-value;
+            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label;
             preview(value) => {

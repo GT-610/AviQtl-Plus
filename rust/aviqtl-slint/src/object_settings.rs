@@ -648,7 +648,26 @@ pub(super) fn sync_object_settings(
     let mut rows = object_settings_rows(&projection);
     for row in &mut rows {
         row.folded = folded.contains(&(row.audio_plugin, row.effect_index));
-        if row.audio_plugin || row.param_name.is_empty() {
+        if row.param_name.is_empty() {
+            continue;
+        }
+        // A plugin parameter is addressed by slot index, an effect parameter by catalog id. Both
+        // need the same three states: a row that shows the first object's value while the edit
+        // reaches the whole selection is the one thing this feature exists to prevent.
+        if row.audio_plugin {
+            if let Some(workspace) = model.current_workspace() {
+                match workspace.selection_audio_param_state(
+                    row.effect_index.max(0) as usize,
+                    row.param_name.as_str(),
+                ) {
+                    aviqtl_app::selection_edit::SelectionValue::Mixed(_) => row.mixed = true,
+                    aviqtl_app::selection_edit::SelectionValue::Absent => {
+                        row.absent = true;
+                        row.interactive = false;
+                    }
+                    aviqtl_app::selection_edit::SelectionValue::Uniform(_) => {}
+                }
+            }
             continue;
         }
         if let Some(workspace) = model.current_workspace() {
