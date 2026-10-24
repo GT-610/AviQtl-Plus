@@ -27,7 +27,10 @@ pub mod timeline_interaction;
 pub mod transport;
 pub mod workspace;
 
-pub use aviqtl_rust_core::api::{MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDocument};
+pub use aviqtl_rust_core::api::{
+    MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectDocument, TrimEdge, plan_clip_roll,
+    plan_clip_slide,
+};
 pub use lifecycle::{LifecycleStep, SaveDecision};
 pub use project_io::{ProjectDefaults, ProjectSession};
 pub use recovery::RecoveryEntry;
