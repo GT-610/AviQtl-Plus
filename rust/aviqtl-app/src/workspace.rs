@@ -54,6 +54,29 @@ struct MediaPlacement {
     source_range: Option<(i32, i32)>,
 }
 
+/// One clip an overwrite touches, split at whichever edge of the written range it crosses.
+///
+/// A clip that sticks out on both sides is split twice; the side being written is then removed
+/// and the other side stays where it was, with the source offset the split gave it.
+struct OverwritePiece {
+    /// The clip as it exists when the overwrite starts.
+    clip_id: i32,
+    /// Where to split off the part before the written range, and the id reserved for it.
+    head_split: Option<(i32, i32)>,
+    /// Where to split off the part after the written range, and the id reserved for it.
+    tail_split: Option<(i32, i32)>,
+}
+
+impl OverwritePiece {
+    /// The id that covers the written range once the head has been split off.
+    fn remaining_id(&self) -> i32 {
+        match self.head_split {
+            Some((_, new_clip_id)) => new_clip_id,
+            None => self.clip_id,
+        }
+    }
+}
+
 struct ContinuousEdit {
     key: String,
     transaction: Option<TimelineTransaction>,
@@ -2739,6 +2762,17 @@ impl WorkspaceModel {
     ///
     /// Audio plugins have no id-based identity, so the index is the identity and this cannot share
     /// the effect-id path above.
+    /// What the selection's audio-plugin parameter looks like, for a three-state row.
+    pub fn selection_audio_param_state(&self, plugin_index: usize, param: &str) -> SelectionValue {
+        let clips = self.selected_clips();
+        crate::selection_edit::selection_audio_param_value(
+            &clips,
+            plugin_index,
+            param,
+            self.playhead,
+        )
+    }
+
     pub fn set_selection_audio_param(
         &mut self,
         plugin_index: usize,
@@ -3305,10 +3339,12 @@ impl WorkspaceModel {
 
     /// Inserts the selected source range of one media-bin entry at a requested frame.
     ///
-    /// `overwrite` replaces everything the new block would occupy on the target layers instead of
-    /// searching for the next gap, which is what a bin's overwrite button means. Both variants use
-    /// the same importer, so the source range, linked video/audio pair, and probing rules cannot
-    /// drift between them.
+    /// `overwrite` replaces exactly what the new block would occupy on the target layers instead
+    /// of searching for the next gap, which is what a bin's overwrite button means. A clip that is
+    /// only partly covered is split and its uncovered part stays, because "overwrite" is about the
+    /// range being written, not about discarding a neighbour's work. Both variants use the same
+    /// importer, so the source range, linked video/audio pair, and probing rules cannot drift
+    /// between them.
     pub fn insert_media_from_bin(
         &mut self,
         entry_id: i32,
@@ -3329,6 +3365,29 @@ impl WorkspaceModel {
         });
         let maximum_layers = maximum_layers.clamp(1, MAX_TIMELINE_LAYERS);
         let layer = layer.clamp(0, maximum_layers - 1);
+        let placement = MediaPlacement {
+            default_duration_frames: entry.duration_frames,
+            maximum_layers,
+            source_range: range,
+        };
+        // Everything that can refuse the request runs before the timeline changes: a bin can hold
+        // an entry whose file has since been deleted, and discovering that after the covered clips
+        // were removed would leave a hole the user has to undo.
+        if let Err(error) = self.validate_media_import(&path, placement, catalog) {
+            self.set_status_text(error);
+            return None;
+        }
+        if overwrite
+            && entry.kind == MediaImportKind::Video
+            && layer.saturating_add(1) >= maximum_layers
+        {
+            self.set_status(status_message!(
+                "A linked video needs an audio layer below it",
+                "链接的视频需要下方有可用的音频图层",
+                "リンクされた映像には下の音声レイヤーが必要です"
+            ));
+            return None;
+        }
         let scene_id = self.selected_scene;
         let start = if overwrite {
             frame.max(0)
@@ -3342,6 +3401,7 @@ impl WorkspaceModel {
                     duration,
                     maximum_layers,
                 )
+                .inspect_err(|error| self.set_status_text(error.clone()))
                 .ok()?,
                 MediaImportKind::Audio | MediaImportKind::Image => find_vacant_scene_frame(
                     &self.project.document,
@@ -3351,65 +3411,121 @@ impl WorkspaceModel {
                     frame.max(0),
                     duration,
                 )
+                .map_err(|error| error.to_string())
+                .inspect_err(|error| self.set_status_text(error.clone()))
                 .ok()?,
             }
         };
-        let overwrite_layers = if entry.kind == MediaImportKind::Video {
-            vec![layer, layer.saturating_add(1)]
-        } else {
-            vec![layer]
-        };
         let end = start.saturating_add(duration);
-        let overlapping = self
-            .project
-            .document
-            .clips
-            .iter()
-            .filter(|clip| {
-                clip.scene_id == scene_id
-                    && overwrite_layers.contains(&clip.layer)
-                    && clip.start < end
-                    && clip.start.saturating_add(clip.duration) > start
-            })
-            .collect::<Vec<_>>();
-        if overwrite && let Some(clip) = overlapping.iter().find(|clip| self.is_clip_locked(clip)) {
-            self.set_status(status_message!(
-                "Layer {} is locked",
-                "图层 {} 已锁定",
-                "レイヤー {} はロックされています",
-                clip.layer + 1
-            ));
-            return None;
+        let mut pieces = Vec::new();
+        if overwrite {
+            let overwrite_layers = if entry.kind == MediaImportKind::Video {
+                vec![layer, layer.saturating_add(1)]
+            } else {
+                vec![layer]
+            };
+            let overlapping = self
+                .project
+                .document
+                .clips
+                .iter()
+                .filter(|clip| {
+                    clip.scene_id == scene_id
+                        && overwrite_layers.contains(&clip.layer)
+                        && clip.start < end
+                        && clip.start.saturating_add(clip.duration) > start
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if let Some(clip) = overlapping.iter().find(|clip| self.is_clip_locked(clip)) {
+                self.set_status(status_message!(
+                    "Layer {} is locked",
+                    "图层 {} 已锁定",
+                    "レイヤー {} はロックされています",
+                    clip.layer + 1
+                ));
+                return None;
+            }
+            // A clip that reaches past either edge of the range is split there: the side being
+            // written is removed, the side that stays keeps its own frames and source offset
+            // because the split itself carries them.
+            let splits = overlapping
+                .iter()
+                .map(|clip| {
+                    let clip_end = clip.start.saturating_add(clip.duration);
+                    (clip.start < start) as usize + (clip_end > end) as usize
+                })
+                .sum::<usize>();
+            let mut ids = if splits == 0 {
+                Vec::new()
+            } else {
+                match self.project.state.reserve_clip_ids(splits) {
+                    Ok(ids) => ids,
+                    Err(error) => {
+                        self.set_status_text(error.to_string());
+                        return None;
+                    }
+                }
+            };
+            let mut ids = ids.drain(..);
+            for clip in &overlapping {
+                let clip_end = clip.start.saturating_add(clip.duration);
+                let head_split =
+                    (clip.start < start).then(|| (start, ids.next().unwrap_or_default()));
+                let tail_split = (clip_end > end).then(|| (end, ids.next().unwrap_or_default()));
+                pieces.push(OverwritePiece {
+                    clip_id: clip.id,
+                    head_split,
+                    tail_split,
+                });
+            }
         }
-        let removals = if overwrite {
-            overlapping
-                .into_iter()
-                .map(|clip| TimelineCommand::RemoveClip { clip_id: clip.id })
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
-        // Both halves are separate transactions by construction, so bracket them in one undo
-        // group: undo then restores the overwritten clips and removes the replacement together.
-        // A failed insertion still ends the group, leaving only the removal undoable instead of
-        // half-applied history.
+        // Splits, removals, and the insertion are separate transactions by construction, so
+        // bracket them in one undo group: undo then restores the overwritten range and removes the
+        // replacement as one step.
         let grouped = self.begin_undo_group();
         let mut failed = None;
-        if !removals.is_empty() && !self.execute_batch(removals) {
+        let head_commands = pieces
+            .iter()
+            .filter_map(|piece| {
+                piece
+                    .head_split
+                    .map(|(frame, new_clip_id)| TimelineCommand::SplitClip {
+                        clip_id: piece.clip_id,
+                        frame,
+                        new_clip_id,
+                    })
+            })
+            .collect::<Vec<_>>();
+        if !head_commands.is_empty() && !self.execute_batch(head_commands) {
+            failed = Some(self.status.clone());
+        }
+        let tail_commands = pieces
+            .iter()
+            .filter_map(|piece| {
+                piece
+                    .tail_split
+                    .map(|(frame, new_clip_id)| TimelineCommand::SplitClip {
+                        clip_id: piece.remaining_id(),
+                        frame,
+                        new_clip_id,
+                    })
+            })
+            .collect::<Vec<_>>();
+        if failed.is_none() && !tail_commands.is_empty() && !self.execute_batch(tail_commands) {
+            failed = Some(self.status.clone());
+        }
+        let removals = pieces
+            .iter()
+            .map(|piece| TimelineCommand::RemoveClip {
+                clip_id: piece.remaining_id(),
+            })
+            .collect::<Vec<_>>();
+        if failed.is_none() && !removals.is_empty() && !self.execute_batch(removals) {
             failed = Some(self.status.clone());
         }
         let inserted = if failed.is_none() {
-            self.import_media_file_at(
-                &path,
-                start,
-                layer,
-                MediaPlacement {
-                    default_duration_frames: entry.duration_frames,
-                    maximum_layers,
-                    source_range: range,
-                },
-                catalog,
-            )
+            self.import_media_file_at(&path, start, layer, placement, catalog)
         } else {
             Err(failed.unwrap_or_default())
         };
@@ -3421,6 +3537,34 @@ impl WorkspaceModel {
             .ok()
     }
 
+    /// Runs every check the importer performs before the timeline is touched.
+    ///
+    /// A bin entry outlives its file, and a missing effect catalog entry is just as fatal as a
+    /// missing file. Both are cheap to find here and expensive to find after an overwrite has
+    /// already removed the clips it was going to replace.
+    fn validate_media_import(
+        &mut self,
+        path: &Path,
+        placement: MediaPlacement,
+        catalog: &EffectCatalog,
+    ) -> Result<(), String> {
+        let scene_fps = self
+            .selected_scene_document()
+            .map_or(60.0, |scene| scene.fps);
+        let plan = plan_media_import(path, scene_fps, placement.default_duration_frames.max(1))?;
+        let required: &[&str] = match plan.kind {
+            MediaImportKind::Video => &["transform", "video", "audio"],
+            MediaImportKind::Audio => &["audio"],
+            MediaImportKind::Image => &["transform", "image"],
+        };
+        match required
+            .iter()
+            .find(|effect_id| catalog.find(effect_id).is_none())
+        {
+            Some(effect_id) => Err(format!("{effect_id} object is not available")),
+            None => Ok(()),
+        }
+    }
     pub fn import_media_files(
         &mut self,
         paths: &[PathBuf],
@@ -3820,11 +3964,18 @@ impl WorkspaceModel {
         } else {
             ("startTime", "source")
         };
+        // `startTime` is stored in seconds while the planner works in frames, so the preview has
+        // to convert the same way the commit does or the outline lies about the edit.
         let current = source
             .params
             .get(parameter)
             .and_then(Value::as_f64)
             .unwrap_or(0.0);
+        let current = if parameter == "startTime" {
+            current * self.scene_fps()
+        } else {
+            current
+        };
         let path = source
             .params
             .get(path_parameter)
@@ -3842,14 +3993,20 @@ impl WorkspaceModel {
         .ok()
         .flatten()?;
         if parameter == "startTime" {
-            let fps = self
-                .selected_scene_document()
-                .map_or(60.0, |scene| scene.fps)
-                .max(f64::EPSILON);
-            Some(f64::from(new_start) / fps)
+            Some(f64::from(new_start) / self.scene_fps())
         } else {
             Some(f64::from(new_start))
         }
+    }
+
+    /// The active scene's frame rate, or the project default when no scene is open.
+    ///
+    /// Zero is impossible in a saved project, but a hand-edited one could carry it, and division
+    /// is how a `startTime` becomes frames.
+    fn scene_fps(&self) -> f64 {
+        self.selected_scene_document()
+            .map_or(60.0, |scene| scene.fps)
+            .max(f64::EPSILON)
     }
 
     fn source_duration_frames(&self, path: &Path, clip: &ClipDocument) -> Option<i32> {
@@ -3894,11 +4051,13 @@ impl WorkspaceModel {
             ));
             return false;
         }
-        let source = clip.effects.iter().find(|effect| {
+        // The index matters: a video clip carries `transform` first and `video` second, so writing
+        // through index 0 would target the wrong effect and report a missing parameter.
+        let source_index = clip.effects.iter().position(|effect| {
             (clip.clip_type == "video" && effect.id == "video")
                 || (clip.clip_type == "audio" && effect.id == "audio")
         });
-        let Some(source) = source else {
+        let Some(source_index) = source_index else {
             self.set_status(status_message!(
                 "This object has no seekable media source",
                 "此对象没有可调整的媒体源",
@@ -3906,6 +4065,7 @@ impl WorkspaceModel {
             ));
             return false;
         };
+        let source = &clip.effects[source_index];
         let (parameter, current, path_parameter) = if clip.clip_type == "video" {
             (
                 "startFrame",
@@ -3917,10 +4077,6 @@ impl WorkspaceModel {
                 "path",
             )
         } else {
-            let fps = self
-                .selected_scene_document()
-                .map_or(60.0, |scene| scene.fps)
-                .max(f64::EPSILON);
             (
                 "startTime",
                 source
@@ -3928,7 +4084,7 @@ impl WorkspaceModel {
                     .get("startTime")
                     .and_then(Value::as_f64)
                     .unwrap_or(0.0)
-                    * fps,
+                    * self.scene_fps(),
                 "source",
             )
         };
@@ -3963,15 +4119,11 @@ impl WorkspaceModel {
             }
         };
         let value = if parameter == "startTime" {
-            let fps = self
-                .selected_scene_document()
-                .map_or(60.0, |scene| scene.fps)
-                .max(f64::EPSILON);
-            Value::from(f64::from(new_start) / fps)
+            Value::from(f64::from(new_start) / self.scene_fps())
         } else {
             Value::from(new_start)
         };
-        self.set_effect_param_for_clip(clip_id, 0, parameter, value)
+        self.set_effect_param_for_clip(clip_id, source_index, parameter, value)
     }
 
     pub fn toggle_layer_visibility(&mut self, layer: i32) -> bool {
@@ -5706,7 +5858,7 @@ mod tests {
         let id = workspace.media_bin().entries()[0].id;
         assert!(workspace.set_media_bin_range(id, Some(0), Some(5)));
 
-        // Overwrite frames 10..15 on layer 0, which currently belongs to clip 2. Adding and
+        // Overwrite frames 10..15 on layer 0, which starts exactly where clip 2 starts. Adding and
         // re-ranging the bin entry are edits of their own, so measure from the state right before
         // the insertion rather than assuming a pristine history.
         let undo_depth = workspace.undo.len();
@@ -5718,11 +5870,7 @@ mod tests {
         assert_eq!(
             workspace.undo.len(),
             undo_depth + 1,
-            "the removal and the insertion are one undo entry"
-        );
-        assert!(
-            !workspace.document().clips.iter().any(|clip| clip.id == 2),
-            "the covered clip is removed"
+            "the split, the removal, and the insertion are one undo entry"
         );
         let replacement = workspace
             .document()
@@ -5731,18 +5879,98 @@ mod tests {
             .find(|clip| clip.layer == 0 && clip.start == 10)
             .expect("the replacement starts at the requested frame");
         assert_eq!(replacement.duration, 5);
+        // Clip 2 reached past the written range, so its uncovered part must still be there.
+        assert!(
+            workspace
+                .document()
+                .clips
+                .iter()
+                .any(|clip| clip.layer == 0 && clip.start == 15 && clip.duration == 15),
+            "the part of clip 2 after the written range survives: {:#?}",
+            workspace.document().clips
+        );
+        assert!(
+            !workspace.document().clips.iter().any(|clip| clip.id == 2),
+            "the covered part of clip 2 is gone, not the whole clip"
+        );
 
         assert!(workspace.undo());
         assert!(
-            workspace.document().clips.iter().any(|clip| clip.id == 2),
-            "undo restores the overwritten clip and removes the replacement"
+            workspace
+                .document()
+                .clips
+                .iter()
+                .any(|clip| clip.id == 2 && clip.start == 10 && clip.duration == 20),
+            "undo restores the overwritten clip in one piece"
         );
         assert!(
             workspace.document().clips.iter().all(|clip| clip.id <= 3),
-            "the inserted clip is gone again"
+            "the replacement and the split tail are gone again"
         );
 
         std::fs::remove_file(path).expect("temporary media placeholder is removable");
+    }
+
+    #[test]
+    fn overwrite_keeps_both_neighbours_of_a_covered_range() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace_with_row();
+        let path = temporary_media_file("wav");
+        workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 20);
+        let id = workspace.media_bin().entries()[0].id;
+        assert!(workspace.set_media_bin_range(id, Some(0), Some(10)));
+
+        // Clip 2 is [10, 30) and clip 3 is [30, 40). Writing 25..35 takes the tail of clip 2 and
+        // the head of clip 3; both neighbours keep the frames the replacement does not cover.
+        assert!(
+            workspace
+                .insert_media_from_bin(id, 25, 0, 8, &catalog, true)
+                .is_some()
+        );
+        let spans = workspace
+            .document()
+            .clips
+            .iter()
+            .filter(|clip| clip.layer == 0)
+            .map(|clip| (clip.start, clip.duration))
+            .collect::<Vec<_>>();
+        assert!(spans.contains(&(10, 15)), "clip 2 keeps 10..25: {spans:?}");
+        assert!(
+            spans.contains(&(25, 10)),
+            "the replacement fills 25..35: {spans:?}"
+        );
+        assert!(spans.contains(&(35, 5)), "clip 3 keeps 35..40: {spans:?}");
+        assert!(
+            !spans.iter().any(|(start, duration)| *start < 25
+                && start.saturating_add(*duration) > 25
+                && *start != 10),
+            "nothing but the replacement starts inside the written range: {spans:?}"
+        );
+
+        std::fs::remove_file(path).expect("temporary media placeholder is removable");
+    }
+
+    #[test]
+    fn overwrite_refuses_a_missing_source_before_removing_anything() {
+        let (catalog, _) = EffectCatalog::load();
+        let mut workspace = workspace_with_row();
+        let path = temporary_media_file("wav");
+        workspace.add_media_to_bin(std::slice::from_ref(&path), 60.0, 20);
+        let id = workspace.media_bin().entries()[0].id;
+        std::fs::remove_file(&path).expect("temporary media placeholder is removable");
+
+        let revision = workspace.document_revision();
+        assert!(
+            workspace
+                .insert_media_from_bin(id, 10, 0, 8, &catalog, true)
+                .is_none()
+        );
+        assert_eq!(
+            workspace.document_revision(),
+            revision,
+            "a source that cannot be imported must not cost the covered clips"
+        );
+        assert_eq!(geometry(&workspace, 2), (10, 20));
     }
 
     #[test]
@@ -5773,6 +6001,54 @@ mod tests {
         assert!(!workspace.slip_clip(2, 3));
         assert!(workspace.status().contains("no seekable media source"));
         assert_eq!(geometry(&workspace, 2), (10, 20));
+    }
+
+    #[test]
+    fn slip_moves_the_video_source_not_the_transform() {
+        let mut workspace = workspace_with_media_sources();
+        // A video clip carries `transform` first and `video` second; writing through the first
+        // effect would report a missing parameter and leave the source where it was.
+        assert!(
+            workspace.slip_clip(1, 30),
+            "video slip failed: {}",
+            workspace.status()
+        );
+        let clip = &workspace.document().clips[0];
+        assert_eq!(
+            clip.effects[1]
+                .params
+                .get("startFrame")
+                .and_then(Value::as_f64),
+            Some(30.0),
+            "the source in-point moves"
+        );
+        assert!(
+            clip.effects[0].params.get("startFrame").is_none(),
+            "the transform effect is untouched"
+        );
+        assert_eq!(workspace.preview_slip(1, 30), Some(60.0));
+    }
+
+    #[test]
+    fn audio_slip_previews_the_frame_it_commits() {
+        let mut workspace = workspace_with_media_sources();
+        // `startTime` is seconds while the planner works in frames: 1.0s at 60 fps is frame 60, so
+        // a 30-frame slip lands on 1.5s. Treating the stored value as frames would preview 0.52s.
+        assert_eq!(workspace.preview_slip(2, 30), Some(1.5));
+        assert!(
+            workspace.slip_clip(2, 30),
+            "audio slip failed: {}",
+            workspace.status()
+        );
+        let start_time = workspace.document().clips[1].effects[0]
+            .params
+            .get("startTime")
+            .and_then(Value::as_f64)
+            .expect("startTime stays a number");
+        assert!(
+            (start_time - 1.5).abs() < 1e-9,
+            "the commit lands on the frame the preview showed, got {start_time}"
+        );
     }
 
     #[test]
@@ -5929,6 +6205,47 @@ mod tests {
             }"#,
         )
         .expect("row workspace fixture loads");
+        let document = state.snapshot();
+        WorkspaceModel::new(ProjectSession {
+            state,
+            document,
+            path: None,
+            dirty: false,
+        })
+    }
+
+    /// One video and one audio clip, both pointing at a bin entry that knows their source length.
+    ///
+    /// The bin is what tells a slip how far it may move without probing the file, so a slip test
+    /// needs the two to agree on the path.
+    fn workspace_with_media_sources() -> WorkspaceModel {
+        let state = TimelineState::from_json(
+            br#"{
+                "version": 3,
+                "settings": {"width": 1920, "height": 1080, "fps": 60, "sampleRate": 48000},
+                "scenes": [{"id": 1, "name": "Root", "duration": 300}],
+                "clips": [
+                    {"id": 1, "sceneId": 1, "type": "video", "start": 0, "duration": 100, "layer": 0,
+                     "effects": [
+                        {"enabled": true, "id": "transform", "params": {"opacity": 1.0, "scale": 100, "x": 0, "y": 0}},
+                        {"enabled": true, "id": "video", "params": {"directFrame": 0, "opacity": 1.0, "path": "media/clip.mp4", "playMode": "normal", "speed": 100.0, "startFrame": 0}}
+                     ]},
+                    {"id": 2, "sceneId": 1, "type": "audio", "start": 0, "duration": 100, "layer": 1,
+                     "effects": [
+                        {"enabled": true, "id": "audio", "params": {"source": "media/track.wav", "startTime": 1.0, "volume": 1.0, "playMode": "normal", "speed": 100.0}}
+                     ]}
+                ],
+                "mediaBin": {
+                    "entries": [
+                        {"id": 1, "path": "media/clip.mp4", "name": "clip.mp4", "kind": "video", "durationFrames": 900, "inFrame": 0, "outFrame": 900},
+                        {"id": 2, "path": "media/track.wav", "name": "track.wav", "kind": "audio", "durationFrames": 900, "inFrame": 0, "outFrame": 900}
+                    ],
+                    "bins": [],
+                    "nextEntryId": 3
+                }
+            }"#,
+        )
+        .expect("media workspace fixture loads");
         let document = state.snapshot();
         WorkspaceModel::new(ProjectSession {
             state,

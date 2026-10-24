@@ -153,6 +153,40 @@ pub fn selection_value(
     }
 }
 
+/// Resolves an audio-plugin parameter across the selection.
+///
+/// Plugins are addressed by their slot index rather than by an id: a plugin instance has no stable
+/// id in the document, and the panel's rows are built per slot. The same three states apply as for
+/// an effect parameter, because the same question is being asked - do the selected objects agree?
+pub fn selection_audio_param_value(
+    clips: &[&ClipDocument],
+    plugin_index: usize,
+    param: &str,
+    playhead: i32,
+) -> SelectionValue {
+    let mut found: Option<Value> = None;
+    let mut mixed = false;
+    for clip in clips {
+        let Some(plugin) = clip.audio_plugins.get(plugin_index) else {
+            continue;
+        };
+        let Some(original) = plugin.params.get(param) else {
+            continue;
+        };
+        let current = audio_value_at_playhead(plugin, param, original, clip, playhead);
+        match &found {
+            None => found = Some(current),
+            Some(previous) if value_payload(previous) == value_payload(&current) => {}
+            Some(_) => mixed = true,
+        }
+    }
+    match found {
+        None => SelectionValue::Absent,
+        Some(value) if mixed => SelectionValue::Mixed(value),
+        Some(value) => SelectionValue::Uniform(value),
+    }
+}
+
 /// Plans a multi-object parameter edit.
 ///
 /// The rules, in order:
@@ -389,6 +423,26 @@ fn value_at_playhead(
     playhead: i32,
 ) -> Value {
     let Some(track) = effect
+        .keyframes
+        .as_ref()
+        .and_then(|tracks| tracks.get(param))
+    else {
+        return original.clone();
+    };
+    let frame = playhead
+        .saturating_sub(clip.start)
+        .clamp(0, clip.duration.max(0));
+    evaluated_keyframe_value(track, original, clip, frame)
+}
+
+fn audio_value_at_playhead(
+    plugin: &AudioPluginDocument,
+    param: &str,
+    original: &Value,
+    clip: &ClipDocument,
+    playhead: i32,
+) -> Value {
+    let Some(track) = plugin
         .keyframes
         .as_ref()
         .and_then(|tracks| tracks.get(param))
