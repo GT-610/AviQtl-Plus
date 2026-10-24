@@ -152,13 +152,29 @@ impl LifecycleUi {
             ("timeline", timeline.window()),
             ("objectSettings", objects.window()),
         ];
+        let origin_window = match origin {
+            WorkspaceOrigin::Main => main.window(),
+            WorkspaceOrigin::Timeline => timeline.window(),
+        };
+        // The menu that was used decides the screen; the preview window is only
+        // the fallback for a window that has no monitor yet. The monitor's own
+        // scale factor is what the whole layout is expressed in, saving it as
+        // well as applying it, so a layout saved on one display and restored on
+        // another keeps its proportions.
+        let (screen, reference_scale) = monitor_screen(origin_window)
+            .or_else(|| monitor_screen(main.window()))
+            .unwrap_or((crate::dialogs::WindowGeometry::new(32, 48, 1280, 800), 1.0));
         if action == "save" {
             let mut layout = serde_json::Map::new();
             for (id, window) in windows {
                 layout.insert(
                     id.into(),
                     serde_json::json!({
-                        "geometry": crate::dialogs::WindowGeometry::capture(window).json(),
+                        "geometry": crate::dialogs::WindowGeometry::capture_at(
+                            window,
+                            reference_scale,
+                        )
+                        .json(),
                         "visible": window.is_visible(),
                     }),
                 );
@@ -173,16 +189,6 @@ impl LifecycleUi {
             }
             return;
         }
-        let origin_window = match origin {
-            WorkspaceOrigin::Main => main.window(),
-            WorkspaceOrigin::Timeline => timeline.window(),
-        };
-        // The menu that was used decides the screen; the preview window is only
-        // the fallback for a window that has no monitor yet. The monitor's own
-        // scale factor is what the whole layout below is expressed in.
-        let (screen, reference_scale) = monitor_screen(origin_window)
-            .or_else(|| monitor_screen(main.window()))
-            .unwrap_or((crate::dialogs::WindowGeometry::new(32, 48, 1280, 800), 1.0));
         let defaults = editor_layout(screen, "editing");
         if action == "recover-screen" {
             for ((_, window), fallback) in windows.iter().zip(defaults) {

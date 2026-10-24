@@ -56,6 +56,32 @@ fn a_layout_crosses_a_scale_change_in_one_coordinate_space() {
     assert!(size.width >= 1 && size.height >= 1);
 }
 
+/// A saved layout is captured in the same space a restored one is applied in, so
+/// the two have to undo each other exactly. `capture_at` reads a window's
+/// physical pixels back through the reference scale, and this pins that the
+/// conversion `physical_geometry` applies is inverted by it.
+#[test]
+fn a_saved_layout_round_trips_through_the_reference_scale() {
+    let geometry = WindowGeometry::new(-1712, 36, 1680, 900);
+    for scale in [1.0_f32, 2.0, 1.5] {
+        let (position, size) = crate::lifecycle::physical_geometry(geometry, scale);
+        let logical_position = position.to_logical(scale);
+        let logical_size = size.to_logical(scale);
+        assert_eq!(logical_position.x.round() as i32, geometry.x, "at {scale}");
+        assert_eq!(logical_position.y.round() as i32, geometry.y, "at {scale}");
+        assert_eq!(
+            logical_size.width.round() as i32,
+            geometry.width,
+            "at {scale}"
+        );
+        assert_eq!(
+            logical_size.height.round() as i32,
+            geometry.height,
+            "at {scale}"
+        );
+    }
+}
+
 #[test]
 fn screen_recovery_moves_only_fully_off_screen_windows() {
     let screen = WindowGeometry::new(0, 0, 1000, 800);

@@ -44,7 +44,9 @@ All notable changes to AviQtl-Plus are documented in this file.
   preview window's monitor when the two are on different displays
 - Window layouts are applied in physical pixels computed from one monitor's
   scale, so a window that lands on a display with a different scaling factor
-  keeps the size and place the layout gave it instead of being doubled or halved
+  keeps the size and place the layout gave it instead of being doubled or halved.
+  A saved layout is captured in that same scale, so restoring it on another
+  display keeps its proportions too
 - The timeline refuses to split a selection it cannot split with a translated
   sentence rather than an English one
 
