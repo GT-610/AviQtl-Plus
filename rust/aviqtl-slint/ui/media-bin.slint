@@ -64,6 +64,11 @@ export component MediaBinPanel inherits Rectangle {
                 min-width: 110px;
                 model: root.group-names;
                 current-index: root.group-index;
+                // A selection inside the box assigns `current-index`, which drops the binding above.
+                // Following the projection explicitly is what keeps the box right when the group it
+                // showed is removed or renamed underneath it.
+                private property <int> projected: root.group-index;
+                changed projected => { self.current-index = self.projected; }
                 current-value: root.group-name(self.current-index);
                 selected(value) => {
                     if self.current-index <= 1 {
@@ -228,6 +233,8 @@ export component MediaBinPanel inherits Rectangle {
                             horizontal-stretch: 1;
                             model: root.group-names;
                             current-index: entry.group-id < 0 ? 1 : entry.group-index + 2;
+                            private property <int> projected: entry.group-id < 0 ? 1 : entry.group-index + 2;
+                            changed projected => { self.current-index = self.projected; }
                             current-value: root.group-name(self.current-index);
                             selected(value) => {
                                 // Index 0 is "All media", a filter rather than a group: picking it

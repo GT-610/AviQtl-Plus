@@ -573,6 +573,9 @@ export component ObjectSettingRow inherits Rectangle {
             accessible-label: root.row-data.label;
             accessible-description: root.row-data.mixed ? @tr("Mixed values") : "";
             accessible-checked: root.row-data.checked && !root.row-data.mixed;
+            // The row itself is the accessible checkbox: putting the role on the touch area as well
+            // would nest two checkboxes and leave the reader unsure which one has the action.
+            accessible-action-default => { root.toggle-bool(); };
             Text {
                 x: 24px;
                 text: root.row-data.label + (root.row-data.mixed ? "  (" + @tr("Mixed values") + ")" : "");
@@ -602,11 +605,6 @@ export component ObjectSettingRow inherits Rectangle {
                 height: 100%;
                 enabled: root.row-data.interactive;
                 mouse-cursor: pointer;
-                accessible-role: checkbox;
-                accessible-label: root.row-data.label;
-                accessible-checked: root.row-data.checked;
-                accessible-description: root.row-data.mixed ? @tr("Objects disagree") : "";
-                accessible-action-default => { root.toggle-bool(); }
                 clicked => {
                     toggle-scope.focus();
                     root.toggle-bool();
