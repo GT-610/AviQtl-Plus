@@ -243,6 +243,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     timeline.set_scene_tabs(ModelRc::new(VecModel::<SceneTabData>::default()));
     timeline.set_clips(ModelRc::new(VecModel::<TimelineClipData>::default()));
     timeline.set_layers(ModelRc::new(VecModel::<LayerData>::default()));
+    timeline.set_media_entries(ModelRc::new(VecModel::<MediaBinEntryData>::default()));
+    timeline.set_media_groups(ModelRc::new(VecModel::<MediaBinGroupData>::default()));
+    timeline.set_media_group_names(ModelRc::new(VecModel::<SharedString>::default()));
     timeline.set_object_catalog_items(ModelRc::new(VecModel::<EffectCatalogItemData>::default()));
     timeline.set_object_catalog_categories(ModelRc::new(VecModel::<SharedString>::default()));
     timeline.set_object_catalog_menu_categories(ModelRc::new(VecModel::<

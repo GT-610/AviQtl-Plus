@@ -12,6 +12,12 @@ msgstr ""
 msgid " Keyframes"
 msgstr " キーフレーム"
 
+msgid " end value"
+msgstr " 終了値"
+
+msgid " frames"
+msgstr " フレーム"
+
 msgid " frames / "
 msgstr " フレーム / "
 
@@ -24,11 +30,20 @@ msgstr " 件"
 msgid " sec)"
 msgstr " 秒)"
 
+msgid " source"
+msgstr " ソース"
+
+msgid " start value"
+msgstr " 開始値"
+
 msgid "+ Add Audio Plugin"
 msgstr "+ オーディオプラグインを追加"
 
 msgid "+ Add Effect"
 msgstr "+ エフェクトを追加"
+
+msgid "+ Group"
+msgstr "+ グループ"
 
 msgid "0 / 0 frames"
 msgstr "0 / 0 フレーム"
@@ -72,6 +87,12 @@ msgstr "エフェクトを追加  ›"
 msgid "Add Filter Effect"
 msgstr "フィルタ効果を追加"
 
+msgid "Add Media..."
+msgstr "メディアを追加…"
+
+msgid "Add Midpoint Here"
+msgstr "ここに中点を追加"
+
 msgid "Add Object"
 msgstr "オブジェクトを追加"
 
@@ -84,11 +105,20 @@ msgstr "リポジトリを追加"
 msgid "Advanced Settings"
 msgstr "詳細設定"
 
+msgid "Advanced curve..."
+msgstr "詳細なカーブ…"
+
+msgid "All effects"
+msgstr "すべてのエフェクト"
+
 msgid "Allow All"
 msgstr "すべて許可"
 
 msgid "Amplitude"
 msgstr "振幅"
+
+msgid "Animation layout"
+msgstr "アニメーション用レイアウト"
 
 msgid "Appearance"
 msgstr "外観"
@@ -119,6 +149,9 @@ msgstr "音声と進行表示"
 
 msgid "Audio bitrate"
 msgstr "音声ビットレート"
+
+msgid "Audio layout"
+msgstr "オーディオ用レイアウト"
 
 msgid "Audio unavailable"
 msgstr "音声を利用できません"
@@ -153,6 +186,9 @@ msgstr "BPM (音楽)"
 msgid "BPM Settings"
 msgstr "BPM設定"
 
+msgid "BPM:"
+msgstr "BPM:"
+
 msgid "Back 1 Frame"
 msgstr "1フレーム戻る"
 
@@ -174,6 +210,9 @@ msgstr "ビットレート"
 msgid "Bitrate:"
 msgstr "ビットレート:"
 
+msgid "Bring editor windows onto this screen"
+msgstr "編集ウィンドウをこの画面に移動"
+
 msgid "Browse effect catalog..."
 msgstr "エフェクトカタログを開く..."
 
@@ -182,6 +221,9 @@ msgstr "オブジェクトカタログを開く..."
 
 msgid "Browse..."
 msgstr "参照..."
+
+msgid "CRF:"
+msgstr "CRF:"
 
 msgid "Cache capacity"
 msgstr "キャッシュ容量"
@@ -197,6 +239,9 @@ msgstr "書き出しをキャンセルしますか？\n進捗は失われます�
 
 msgid "Check for unsaved projects when exiting"
 msgstr "終了時に未保存のプロジェクトを確認する"
+
+msgid "Clear"
+msgstr "解除"
 
 msgid "Clip by Upper Object"
 msgstr "上のオブジェクトでクリッピング"
@@ -218,6 +263,9 @@ msgstr "シーンを閉じる"
 
 msgid "Codec:"
 msgstr "コーデック:"
+
+msgid "Collapse effect"
+msgstr "エフェクトを折りたたむ"
 
 msgid "Color theme"
 msgstr "カラーテーマ"
@@ -254,6 +302,17 @@ msgstr "現在: "
 
 msgid "Current: Default"
 msgstr "現在: デフォルト"
+
+msgctxt "edit-menu-cut"
+msgid "Cut"
+msgstr "カット"
+
+msgctxt "timeline-cut"
+msgid "Cut"
+msgstr "切り取り"
+
+msgid "Cut"
+msgstr "カット"
 
 msgid "Dark"
 msgstr "ダーク"
@@ -324,17 +383,32 @@ msgstr "「{}」の復元スナップショットを破棄しますか？この�
 msgid "Down"
 msgstr "下へ"
 
+msgid "Drag to adjust; hold Shift for fine adjustment"
+msgstr "ドラッグで調整、Shift を押しながら微調整"
+
 msgid "Drag to change playback position on the timeline"
 msgstr "タイムライン上の現在位置をドラッグして再生位置を変更します"
 
 msgid "Drag to move the keyframe"
 msgstr "ドラッグしてキーフレームを移動"
 
+msgid "Drag to move; double-click to remove"
+msgstr "ドラッグで移動、ダブルクリックで削除"
+
 msgid "Drop here"
 msgstr "ここにドロップ"
 
 msgid "Duplicate"
 msgstr "複製"
+
+msgid "Ease in"
+msgstr "加速"
+
+msgid "Ease in and out"
+msgstr "加減速"
+
+msgid "Ease out"
+msgstr "減速"
 
 msgid "Edit"
 msgstr "編集"
@@ -344,6 +418,15 @@ msgstr "編集制約とズーム"
 
 msgid "Editing and Snap"
 msgstr "編集とスナップ"
+
+msgid "Editing layout"
+msgstr "編集用レイアウト"
+
+msgid "Editing {} selected objects; objects without this property and locked objects are skipped."
+msgstr "{} 個の選択オブジェクトを編集しています。このプロパティを持たないオブジェクトとロック中のオブジェクトはスキップされます。"
+
+msgid "Effect list"
+msgstr "エフェクト一覧"
 
 msgid "Effects"
 msgstr "エフェクト"
@@ -387,6 +470,9 @@ msgstr "エラー"
 msgid "Exit"
 msgstr "終了"
 
+msgid "Expand effect"
+msgstr "エフェクトを展開"
+
 msgid "Export"
 msgstr "書き出し"
 
@@ -402,11 +488,17 @@ msgstr "メディアの書き出し..."
 msgid "Exporting..."
 msgstr "書き出し中..."
 
+msgid "FPS:"
+msgstr "FPS:"
+
 msgid "Fast (fast)"
 msgstr "高速 (fast)"
 
 msgid "Fastest (ultrafast)"
 msgstr "最速 (ultrafast)"
+
+msgid "Favorites"
+msgstr "お気に入り"
 
 msgid "File"
 msgstr "ファイル"
@@ -456,6 +548,12 @@ msgstr "先頭へ移動"
 msgid "Grid Mode:"
 msgstr "グリッドモード:"
 
+msgid "Group"
+msgstr "グループ"
+
+msgid "Group name"
+msgstr "グループ名"
+
 msgid "H.264 (CPU)"
 msgstr "H.264 (CPU)"
 
@@ -473,6 +571,14 @@ msgstr "ヘッダーの高さ"
 
 msgid "Height"
 msgstr "高さ"
+
+msgctxt "launcher-height"
+msgid "Height:"
+msgstr "高さ (縦):"
+
+msgctxt "settings-height"
+msgid "Height:"
+msgstr "高さ:"
 
 msgid "Hidden, locked"
 msgstr "非表示、ロック中"
@@ -495,11 +601,20 @@ msgstr "高品質 (slow)"
 msgid "Highest quality (veryslow)"
 msgstr "最高品質 (veryslow)"
 
+msgid "Image"
+msgstr "画像"
+
 msgid "Image Sequence"
 msgstr "画像シーケンス"
 
+msgid "Image format"
+msgstr "画像形式"
+
 msgid "Import AviUtl Object File (Compatibility)..."
 msgstr "AviUtl オブジェクトファイルを読み込む（互換）..."
+
+msgid "In"
+msgstr "イン"
 
 msgid "Increasing this count increases memory usage"
 msgstr "回数を増やすとメモリ使用量が増えます"
@@ -512,6 +627,9 @@ msgstr "上にレイヤーを挿入 (1行)"
 
 msgid "Insert Layer Below (1 row)"
 msgstr "下にレイヤーを挿入 (1行)"
+
+msgid "Insert at Playhead"
+msgstr "再生ヘッドに挿入"
 
 msgid "Insert multiple layers"
 msgstr "複数レイヤーを挿入"
@@ -573,6 +691,9 @@ msgstr "レイヤー"
 msgid "Light"
 msgstr "ライト"
 
+msgid "Linear"
+msgstr "直線"
+
 msgid "Load Preset"
 msgstr "プリセットを読み込み"
 
@@ -584,6 +705,9 @@ msgstr "このレイヤーをロックする"
 
 msgid "Lock/Unlock Current Layer"
 msgstr "現在のレイヤーをロック/解除"
+
+msgid "Locked layer"
+msgstr "レイヤーはロックされています"
 
 msgid "Low quality"
 msgstr "低品質"
@@ -615,6 +739,12 @@ msgstr "プラグイン最大ブロックサイズ"
 msgid "Maximum zoom value"
 msgstr "ズーム最大値"
 
+msgid "Media"
+msgstr "メディア"
+
+msgid "Media Library"
+msgstr "メディアライブラリ"
+
 msgid "Memory and Cache"
 msgstr "メモリとキャッシュ"
 
@@ -629,6 +759,12 @@ msgstr "ズーム最小値"
 
 msgid "Missing Media"
 msgstr "不足しているメディア"
+
+msgid "Mixed keyframes"
+msgstr "キーフレームが異なります"
+
+msgid "Mixed values"
+msgstr "複数の値"
 
 msgid "Move Layer Down"
 msgstr "レイヤーを下へ移動"
@@ -690,6 +826,12 @@ msgstr "一致する項目がありません"
 msgid "No matching objects"
 msgstr "一致するオブジェクトがありません"
 
+msgid "No media matches this filter. Add a file or clear the search."
+msgstr "このフィルターに一致するメディアはありません。ファイルを追加するか検索をクリアしてください。"
+
+msgid "No movement"
+msgstr "移動なし"
+
 msgid "No packages in this category."
 msgstr "このカテゴリにパッケージがありません。"
 
@@ -714,8 +856,14 @@ msgstr "オブジェクト / エフェクト"
 msgid "Object List"
 msgstr "オブジェクト一覧"
 
+msgid "Object midpoint at frame {}"
+msgstr "フレーム {} のオブジェクト中点"
+
 msgid "Objects"
 msgstr "オブジェクト"
+
+msgid "Objects disagree"
+msgstr "オブジェクトごとに値が異なります"
 
 msgid "Offset (Seconds):"
 msgstr "オフセット (秒):"
@@ -728,6 +876,12 @@ msgstr "既存プロジェクトを開く..."
 
 msgid "Open Project"
 msgstr "プロジェクトを開く"
+
+msgid "Out"
+msgstr "アウト"
+
+msgid "Overwrite"
+msgstr "上書き"
 
 msgid "Package Manager"
 msgstr "パッケージマネージャー"
@@ -780,6 +934,9 @@ msgstr "先読みフレーム数"
 msgid "Preset:"
 msgstr "プリセット:"
 
+msgid "Press a shortcut. Escape cancels."
+msgstr "ショートカットを押してください。Esc でキャンセル。"
+
 msgid "Preview"
 msgstr "プレビュー"
 
@@ -804,6 +961,9 @@ msgstr "プロジェクト設定"
 msgid "Project Settings..."
 msgstr "プロジェクト設定..."
 
+msgid "Properties apply to the selection"
+msgstr "プロパティは選択範囲に適用されます"
+
 msgid "Quality mode:"
 msgstr "品質モード:"
 
@@ -812,6 +972,12 @@ msgstr "範囲"
 
 msgid "Recent Projects"
 msgstr "最近使ったプロジェクト"
+
+msgid "Recently used"
+msgstr "最近使用した項目"
+
+msgid "Record"
+msgstr "キーを記録"
 
 msgid "Recover"
 msgstr "復元"
@@ -824,6 +990,18 @@ msgstr "やり直す"
 
 msgid "Reload"
 msgstr "再読込"
+
+msgid "Remove"
+msgstr "削除"
+
+msgid "Remove Current Group"
+msgstr "現在のグループを削除"
+
+msgid "Rename"
+msgstr "名前を変更"
+
+msgid "Rename group"
+msgstr "グループ名を変更"
 
 msgid "Render scale"
 msgstr "描画スケール"
@@ -840,8 +1018,17 @@ msgstr "リポジトリ"
 msgid "Reserved index count"
 msgstr "インデックス予約数"
 
+msgid "Resize clip end"
+msgstr "クリップの終端を調整"
+
+msgid "Resize clip start"
+msgstr "クリップの始点を調整"
+
 msgid "Resolution:"
 msgstr "解像度:"
+
+msgid "Restore saved layout"
+msgstr "保存したレイアウトを復元"
 
 msgid "Right drag: Pan  Wheel: Zoom"
 msgstr "右ドラッグ:パン  ホイール:ズーム"
@@ -849,20 +1036,31 @@ msgstr "右ドラッグ:パン  ホイール:ズーム"
 msgid "Right drag: pan  Wheel: zoom  Left drag: handle  Double-click: add  Right-click: delete"
 msgstr "右ドラッグ:パン  ホイール:ズーム  左ドラッグ:ハンドル  ダブルクリック:追加  右クリック:削除"
 
+msgid "Ripple Trim"
+msgstr "リップルトリム"
+
+msgid "Roll Edit"
+msgstr "ロール編集"
+
 msgid "Ruler height"
 msgstr "ルーラーの高さ"
 
 msgid "Sample 123"
 msgstr "サンプル Sample 123"
 
-msgid "Search catalog..."
-msgstr "カタログを検索..."
-
 msgid "Sample Rate:"
 msgstr "サンプリングレート:"
 
 msgid "Sample rate"
 msgstr "サンプリング周波数"
+
+msgctxt "confirm-save"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "save-project"
+msgid "Save"
+msgstr "上書き保存"
 
 msgid "Save As"
 msgstr "名前を付けて保存"
@@ -878,6 +1076,9 @@ msgstr "プロジェクトの上書き保存"
 
 msgid "Save Project As..."
 msgstr "プロジェクトを名前を付けて保存..."
+
+msgid "Save current layout"
+msgstr "現在のレイアウトを保存"
 
 msgid "Saved {}"
 msgstr "保存日時: {}"
@@ -897,11 +1098,20 @@ msgstr "シーン設定..."
 msgid "Search Paths"
 msgstr "検索パス"
 
+msgid "Search catalog..."
+msgstr "カタログを検索..."
+
+msgid "Search commands or shortcuts..."
+msgstr "コマンドやショートカットを検索…"
+
 msgid "Search effects/objects..."
 msgstr "エフェクト/オブジェクトを検索..."
 
 msgid "Search font names..."
 msgstr "フォント名を検索..."
+
+msgid "Search media"
+msgstr "メディアを検索"
 
 msgid "Search name, ID, category, or format..."
 msgstr "名前・ID・カテゴリ・形式を検索..."
@@ -918,6 +1128,9 @@ msgstr "検索..."
 msgid "Seek Bar"
 msgstr "シークバー"
 
+msgid "Select All"
+msgstr "すべて選択"
+
 msgid "Select Color"
 msgstr "色を選択"
 
@@ -933,6 +1146,9 @@ msgstr "このプラグインに許可する権限を選択してください:"
 msgid "Selected Object Settings"
 msgstr "選択オブジェクトの設定"
 
+msgid "Selection Tool"
+msgstr "選択ツール"
+
 msgid "Sequence number digits"
 msgstr "連番桁数"
 
@@ -944,6 +1160,9 @@ msgstr "設定ダイアログ"
 
 msgid "Settings Dialog - "
 msgstr "設定ダイアログ - "
+
+msgid "Settings Dialog - {} selected objects"
+msgstr "設定ダイアログ - {} 個のオブジェクトを選択"
 
 msgid "Settings are saved with “Apply” or “OK”"
 msgstr "設定は「適用」または「OK」で保存されます"
@@ -960,11 +1179,29 @@ msgstr "タイムラインの表示"
 msgid "Show all layers"
 msgstr "すべてのレイヤーを表示"
 
+msgid "Show or hide the media library"
+msgstr "メディアライブラリの表示を切り替える"
+
 msgid "Show this layer"
 msgstr "このレイヤーを表示する"
 
 msgid "Show/Hide Current Layer"
 msgstr "現在のレイヤーを表示/非表示"
+
+msgid "Slide Clip"
+msgstr "クリップをスライド"
+
+msgid "Slip Media"
+msgstr "メディアをスリップ"
+
+msgid "Source in"
+msgstr "ソースイン"
+
+msgid "Source in: {}"
+msgstr "ソースイン：{}"
+
+msgid "Source out"
+msgstr "ソースアウト"
 
 msgid "Speed"
 msgstr "速度"
@@ -1032,6 +1269,9 @@ msgstr "タイムライン編集領域"
 msgid "Timeline zoom"
 msgstr "タイムラインのズーム率"
 
+msgid "Toggle favorite"
+msgstr "お気に入りを切り替え"
+
 msgid "Tools"
 msgstr "ツール"
 
@@ -1095,6 +1335,17 @@ msgstr "有効にすると、plugins フォルダの変更を検知してプラ�
 msgid "Width"
 msgstr "幅"
 
+msgctxt "launcher-width"
+msgid "Width:"
+msgstr "幅 (横):"
+
+msgctxt "settings-width"
+msgid "Width:"
+msgstr "幅:"
+
+msgid "Workspace"
+msgstr "ワークスペース"
+
 msgid "Yes"
 msgstr "はい"
 
@@ -1119,142 +1370,8 @@ msgstr "ズーム:"
 msgid "{} missing media files"
 msgstr "{} 個のメディアファイルが見つかりません"
 
+msgid "{} selected objects"
+msgstr "{} 個のオブジェクトを選択"
+
 msgid "‹ Back"
 msgstr "‹ 戻る"
-
-msgctxt "confirm-save"
-msgid "Save"
-msgstr "保存"
-
-msgctxt "edit-menu-cut"
-msgid "Cut"
-msgstr "カット"
-
-msgctxt "launcher-height"
-msgid "Height:"
-msgstr "高さ (縦):"
-
-msgctxt "launcher-width"
-msgid "Width:"
-msgstr "幅 (横):"
-
-msgctxt "save-project"
-msgid "Save"
-msgstr "上書き保存"
-
-msgctxt "settings-height"
-msgid "Height:"
-msgstr "高さ:"
-
-msgctxt "settings-width"
-msgid "Width:"
-msgstr "幅:"
-
-msgctxt "timeline-cut"
-msgid "Cut"
-msgstr "切り取り"
-
-msgid "Cut"
-msgstr "カット"
-
-msgid "Select All"
-msgstr "すべて選択"
-
-msgid " start value"
-msgstr " 開始値"
-
-msgid " end value"
-msgstr " 終了値"
-
-msgid "Advanced curve..."
-msgstr "詳細なカーブ…"
-
-msgid "All effects"
-msgstr "すべてのエフェクト"
-
-msgid "Animation layout"
-msgstr "アニメーション用レイアウト"
-
-msgid "Audio layout"
-msgstr "オーディオ用レイアウト"
-
-msgid "Bring editor windows onto this screen"
-msgstr "編集ウィンドウをこの画面に移動"
-
-msgid "Clear"
-msgstr "解除"
-
-msgid "Collapse effect"
-msgstr "エフェクトを折りたたむ"
-
-msgid "Drag to adjust; hold Shift for fine adjustment"
-msgstr "ドラッグで調整、Shift を押しながら微調整"
-
-msgid "Ease in"
-msgstr "加速"
-
-msgid "Ease in and out"
-msgstr "加減速"
-
-msgid "Ease out"
-msgstr "減速"
-
-msgid "Editing layout"
-msgstr "編集用レイアウト"
-
-msgid "Effect list"
-msgstr "エフェクト一覧"
-
-msgid "Expand effect"
-msgstr "エフェクトを展開"
-
-msgid "Favorites"
-msgstr "お気に入り"
-
-msgid "Linear"
-msgstr "直線"
-
-msgid "No movement"
-msgstr "移動なし"
-
-msgid "Press a shortcut. Escape cancels."
-msgstr "ショートカットを押してください。Esc でキャンセル。"
-
-msgid "Recently used"
-msgstr "最近使用した項目"
-
-msgid "Record"
-msgstr "キーを記録"
-
-msgid "Restore saved layout"
-msgstr "保存したレイアウトを復元"
-
-msgid "Save current layout"
-msgstr "現在のレイアウトを保存"
-
-msgid "Search commands or shortcuts..."
-msgstr "コマンドやショートカットを検索…"
-
-msgid "Toggle favorite"
-msgstr "お気に入りを切り替え"
-
-msgid "Workspace"
-msgstr "ワークスペース"
-
-msgid "BPM:"
-msgstr "BPM:"
-
-msgid "FPS:"
-msgstr "FPS:"
-
-msgid "Image format"
-msgstr "画像形式"
-
-msgid "Resize clip end"
-msgstr "クリップの終端を調整"
-
-msgid "Resize clip start"
-msgstr "クリップの始点を調整"
-
-msgid "CRF:"
-msgstr "CRF:"

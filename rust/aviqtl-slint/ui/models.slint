@@ -64,6 +64,33 @@ export struct TimelineClipData {
     clip-by-upper-object: bool,
     selected: bool,
     primary: bool,
+    midpoints: [int],
+}
+
+export struct MediaBinGroupData {
+    id: int,
+    name: string,
+}
+
+export struct MediaBinEntryData {
+    id: int,
+    path: string,
+    name: string,
+    kind: string,
+    group-id: int,
+    group-name: string,
+    group-index: int,
+    duration-frames: int,
+    in-frame: int,
+    out-frame: int,
+    selected: bool,
+}
+
+export struct TimelineToolFeedback {
+    valid: bool,
+    start: int,
+    duration: int,
+    source-start: float,
 }
 
 export struct LayerData {
@@ -171,6 +198,9 @@ export struct EasingCatalogRowData {
 }
 
 export struct ObjectSettingRowData {
+    effect-id: string,
+    mixed: bool,
+    absent: bool,
     folded: bool,
     row-kind: string,
     source-kind: string,
@@ -187,6 +217,9 @@ export struct ObjectSettingRowData {
     keyframed: bool,
     range-mode: bool,
     right-interactive: bool,
+    // False when the start field would edit only the primary object: an interval start belongs to
+    // one keyframe track, so a multi-object selection cannot express it.
+    start-interactive: bool,
     start-frame: int,
     end-frame: int,
     current-frame: int,

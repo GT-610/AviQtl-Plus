@@ -102,9 +102,9 @@ suite exercises them on Windows and Linux as well as macOS.
 | Clip drag | 3 px threshold; unselected anchor selects first; selected groups move together | parity |
 | Collision and snap | Rust planner resolves collisions; Shift bypasses grid/magnetic snapping | foundation |
 | Clip resize | Both handles resize all selected clips by one delta and preserve opposite edges | parity |
-| Trim tools | Ripple, roll, slide, and slip are opt-in per command; preview and commit share one planner | foundation |
-| Object midpoints | Markers on a clip, shifted by geometry changes and divided by a split | foundation |
-| Media bin | Entries with source ranges and flat groups; the bin never owns the timeline | foundation |
+| Trim tools | Ripple, roll, slide, and slip are opt-in one-shot tools in the scene strip; preview and commit share one planner | foundation |
+| Object midpoints | Draggable handles on a clip, shifted by geometry changes and divided by a split | foundation |
+| Media bin | Docked library with source ranges, flat groups, search, insert, and overwrite; the bin never owns the timeline | foundation |
 | Multi-object settings | Uniform/mixed/absent per property, effects matched by id, locked objects skipped | foundation |
 | Clip double click | Raise object settings without changing command meaning | foundation |
 | Clipboard | Qt selection order; Cut one undo step; Paste preserves layout and advances target | foundation |

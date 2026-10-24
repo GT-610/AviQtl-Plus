@@ -49,8 +49,11 @@ refactoring. Qt compilation and interactive desktop validation were not run.
 
 Four AviUtl editing capabilities are now implemented as framework-neutral model
 layers in `aviqtl-core` and `aviqtl-app`, with the design and compatibility rules
-recorded in [the batch 4 design document](../docs/batch4-design.md) before any of
-it was wired to a window. None of it requires a GPU-backed adapter.
+recorded in [the batch 4 design document](../docs/batch4-design.md). The Slint
+front end now projects those models into its windows: a docked media library,
+clip midpoint handles, a one-shot trim-tool picker, and mixed/uniform/absent
+multi-object property rows. Desktop acceptance on Windows and Linux is still
+pending. None of it requires a GPU-backed adapter.
 
 - **Object midpoints** are stored in a clip's extra fields under `midpoints` and
   exposed through the `SetClipMidpoints` command, so undo is the ordinary

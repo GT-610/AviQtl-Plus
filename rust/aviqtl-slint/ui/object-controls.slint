@@ -247,13 +247,20 @@ export component ScrubNumberEdit inherits Rectangle {
 export component CommitTextEdit inherits TextEdit {
     in property <string> source-text;
     in property <bool> live-preview: false;
+    // A multiple selection that disagrees on a text parameter has no single text to show. The field
+    // starts empty and says so through its placeholder, so the first keystroke is a replacement and
+    // the placeholder can never become part of the value.
+    in property <bool> mixed: false;
+    in property <string> placeholder: "";
     callback commit(string);
     callback preview(string);
     callback finish-edit();
     callback cancel-edit();
     private property <bool> cancelling: false;
     private property <string> initial-text;
-    text: root.source-text;
+    private property <string> focus-text;
+    text: root.mixed ? "" : root.source-text;
+    placeholder-text: root.mixed ? root.placeholder : "";
     edited(value) => { if root.live-preview { root.preview(value); } }
     key-pressed(event) => {
         if event.text == Key.Escape {
@@ -267,14 +274,24 @@ export component CommitTextEdit inherits TextEdit {
     changed has-focus => {
         if self.has-focus {
             root.initial-text = self.text;
+            root.focus-text = self.text;
         } else if !root.cancelling {
+            // Live previews already applied what was typed; a field that is closed without a change
+            // must not commit, and a mixed field starts empty rather than with one object's text.
             if root.live-preview { root.finish-edit(); }
-            else if self.text != root.source-text { root.commit(self.text); }
+            else if self.text != root.focus-text { root.commit(self.text); }
         }
     }
     changed source-text => {
-        if !self.has-focus && self.text != root.source-text {
-            self.text = root.source-text;
+        let projected = root.mixed ? "" : root.source-text;
+        if !self.has-focus && self.text != projected {
+            self.text = projected;
+        }
+    }
+    changed mixed => {
+        let projected = root.mixed ? "" : root.source-text;
+        if !self.has-focus && self.text != projected {
+            self.text = projected;
         }
     }
 }
@@ -413,6 +430,59 @@ export component EffectSidebarEntry inherits Rectangle {
     }
 }
 
+
+// A numeric field whose three states stay distinguishable: a normal number, a
+// mixed placeholder that refuses to imply the first object is authoritative,
+// and an absent field (handled by the row's interactive flag).
+export component OverlayNumber inherits Rectangle {
+    in property <bool> mixed: false;
+    in property <string> text-value: "";
+    in property <string> label: "";
+    in property <bool> enabled: true;
+    callback commit(string);
+    callback preview(float);
+    callback finish-edit();
+    callback cancel-edit();
+    private property <string> focus-text: "";
+    width: 70px;
+    height: 26px;
+    LineEdit {
+        width: 100%;
+        height: 100%;
+        text: root.mixed ? @tr("Mixed values") : root.text-value;
+        enabled: root.enabled;
+        horizontal-alignment: right;
+        accessible-label: root.label;
+        accessible-description: root.mixed ? @tr("Objects disagree") : "";
+        accepted(value) => {
+            // The placeholder is not a value: Enter on an untouched mixed field must write nothing,
+            // while a number the user typed has to reach the whole selection.
+            if value != @tr("Mixed values") { root.commit(value); }
+        }
+        // Typing assigns `text` and drops the binding above, so a later projection - another row
+        // selected, a drag elsewhere, the selection becoming uniform again - has to be followed
+        // explicitly. Never under the cursor, where it would fight what the user is typing.
+        private property <string> projected: root.mixed ? @tr("Mixed values") : root.text-value;
+        changed projected => {
+            if !self.has-focus { self.text = self.projected; }
+        }
+        changed has-focus => {
+            // Clicking away is an edit too: a number typed and then abandoned by clicking elsewhere
+            // used to be lost. Only a change made during this visit is committed, so returning the
+            // field to where it was is not an edit and Enter does not write twice.
+            if self.has-focus {
+                root.focus-text = self.text;
+            } else {
+                let typed = self.text;
+                if typed != "" && typed != @tr("Mixed values") && typed != root.focus-text
+                    && (root.mixed || typed != root.text-value) {
+                    root.commit(typed);
+                }
+            }
+        }
+    }
+}
+
 export component ObjectSettingRow inherits Rectangle {
     in property <ObjectSettingRowData> row-data;
     callback activate-effect(bool, int);
@@ -442,13 +512,25 @@ export component ObjectSettingRow inherits Rectangle {
         root.quick-easing(root.row-data.effect-index, root.row-data.param-name,
             root.row-data.start-frame, root.row-data.end-frame, mode);
     }
+    // One flip path for the mouse, the keyboard, and the accessibility default action: the
+    // selection's agreement is not part of the value, so every activation writes the opposite of
+    // the state the objects do agree on.
+    function toggle-bool() {
+        root.set-bool(
+            root.row-data.audio-plugin,
+            root.row-data.effect-index,
+            root.row-data.param-name,
+            root.row-data.start-frame,
+            !root.row-data.checked
+        );
+    }
     visible: !root.row-data.folded || root.row-data.row-kind == "effect";
     height: root.row-data.folded && root.row-data.row-kind != "effect" ? 0px
         : root.row-data.row-kind == "number" || root.row-data.row-kind == "integer" ? 34px
         : root.row-data.row-kind == "effect" ? 34px
         : root.row-data.row-kind == "header" ? 28px
         : root.row-data.row-kind == "text" ? 68px
-        : root.row-data.row-kind == "keyframes" ? (root.row-data.keyframed ? 24px : 0px)
+        : root.row-data.row-kind == "keyframes" ? (root.row-data.keyframed && !root.row-data.mixed ? 24px : 0px)
         : 34px;
     background: root.row-data.row-kind == "effect"
         ? (root.row-data.selected ? AppTheme.selection-background : AppTheme.raised-background)
@@ -521,25 +603,70 @@ export component ObjectSettingRow inherits Rectangle {
     if root.row-data.row-kind == "boolean" : HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
-        CheckBox {
-            text: root.row-data.label;
-            checked: root.row-data.checked;
-            enabled: root.row-data.interactive;
-            // A widget writes its own `checked` property on interaction, which
-            // drops the binding to the row. Mirror the projection through a
-            // private property so a replaced row (undo, preset, keyframes under
-            // the playhead) is applied again instead of leaving the last
-            // clicked state on screen.
-            private property <bool> projected: root.row-data.checked;
-            changed projected => { self.checked = self.projected; }
-            toggled => {
-                root.set-bool(
-                    root.row-data.audio-plugin,
-                    root.row-data.effect-index,
-                    root.row-data.param-name,
-                    root.row-data.start-frame,
-                    self.checked
-                );
+        // A mixed boolean is a third state, not "unchecked": clicking it must
+        // write one value to every object instead of leaving them disagreeing.
+        tri-boolean := Rectangle {
+            height: 26px;
+            horizontal-stretch: 1;
+            accessible-role: checkbox;
+            accessible-label: root.row-data.label;
+            accessible-description: root.row-data.mixed ? @tr("Mixed values") : "";
+            accessible-checked: root.row-data.checked && !root.row-data.mixed;
+            accessible-enabled: root.row-data.interactive;
+            // The row itself is the accessible checkbox: putting the role on the touch area as well
+            // would nest two checkboxes and leave the reader unsure which one has the action. A
+            // read-only row reports itself disabled and ignores the action instead of writing.
+            accessible-action-default => {
+                if root.row-data.interactive { root.toggle-bool(); }
+            };
+            Text {
+                x: 24px;
+                text: root.row-data.label + (root.row-data.mixed ? "  (" + @tr("Mixed values") + ")" : "");
+                vertical-alignment: center;
+                color: root.row-data.interactive ? AppTheme.foreground : AppTheme.muted-foreground;
+            }
+            Rectangle {
+                x: 4px;
+                y: 4px;
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: root.row-data.mixed ? AppTheme.warning : root.row-data.checked ? AppTheme.accent : AppTheme.border;
+                background: root.row-data.mixed ? AppTheme.warning.transparentize(0.6)
+                    : root.row-data.checked ? AppTheme.accent : AppTheme.control-background;
+                Text {
+                    text: root.row-data.mixed ? "—" : root.row-data.checked ? "✓" : "";
+                    color: white;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            toggle-touch := TouchArea {
+                width: 100%;
+                height: 100%;
+                enabled: root.row-data.interactive;
+                mouse-cursor: pointer;
+                clicked => {
+                    toggle-scope.focus();
+                    root.toggle-bool();
+                }
+            }
+            // A checkbox that only answers the mouse is not a checkbox: Space and Return activate
+            // it like any other control in the dialog.
+            toggle-scope := FocusScope {
+                width: 0px;
+                height: 0px;
+                enabled: root.row-data.interactive;
+                key-pressed(event) => {
+                    if event.text == " " || event.text == "\n" {
+                        root.toggle-bool();
+                        accept
+                    } else {
+                        reject
+                    }
+                }
             }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -575,7 +702,8 @@ export component ObjectSettingRow inherits Rectangle {
             changed projected => { self.value = self.projected; }
             released => { root.finish-edit(); }
             changed has-focus => { if !self.has-focus { root.finish-edit(); } }
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && root.row-data.start-interactive;
+            opacity: root.row-data.start-interactive ? 1 : 0.45;
             changed(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(
@@ -585,7 +713,7 @@ export component ObjectSettingRow inherits Rectangle {
                         root.row-data.start-frame,
                         value
                     );
-                } else {
+                } else if root.row-data.range-mode {
                     root.set-start-number(
                         root.row-data.effect-index,
                         root.row-data.param-name,
@@ -593,29 +721,39 @@ export component ObjectSettingRow inherits Rectangle {
                         root.row-data.end-frame,
                         value
                     );
+                } else {
+                    // Without a keyframe track this is the plain value, and the plain path edits
+                    // every selected object; the interval-start path writes one clip and is
+                    // reserved for a track that only one object has.
+                    root.set-number(
+                        false,
+                        root.row-data.effect-index,
+                        root.row-data.param-name,
+                        root.row-data.start-frame,
+                        value
+                    );
                 }
             }
         }
-        ScrubNumberEdit {
+        OverlayNumber {
             width: 70px;
             height: 26px;
-            source-text: root.row-data.text-value;
-            enabled: root.row-data.interactive;
+            mixed: root.row-data.mixed;
+            text-value: root.row-data.text-value;
+            enabled: root.row-data.interactive && root.row-data.start-interactive;
+            opacity: root.row-data.start-interactive ? 1 : 0.45;
             label: root.row-data.label + @tr(" start value");
-            value: root.row-data.number-value;
-            minimum: root.row-data.minimum;
-            maximum: root.row-data.maximum;
-            step: root.row-data.step;
-            integer: root.row-data.row-kind == "integer";
+            // An interval start belongs to one object's keyframe track; the projection turns this
+            // off when several objects are selected so the field cannot edit just the primary.
             preview(value) => {
                 if root.row-data.audio-plugin {
                     root.set-number(true, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
-                } else {
+                } else if root.row-data.range-mode {
                     root.set-start-number(root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, root.row-data.end-frame, value);
+                } else {
+                    root.set-number(false, root.row-data.effect-index, root.row-data.param-name, root.row-data.start-frame, value);
                 }
             }
-            finish-edit => { root.finish-edit(); }
-            cancel-edit => { root.cancel-edit(); }
             commit(value) => {
                 root.set-text(
                     root.row-data.audio-plugin,
@@ -625,12 +763,19 @@ export component ObjectSettingRow inherits Rectangle {
                     value
                 );
             }
+            finish-edit => { root.finish-edit(); }
+            cancel-edit => { root.cancel-edit(); }
+        }
+        if root.row-data.mixed : Text {
+            text: @tr("Mixed values");
+            color: AppTheme.warning;
+            vertical-alignment: center;
         }
         if root.row-data.audio-plugin : Button {
             width: 24px;
             height: 26px;
             text: "K";
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && !root.row-data.mixed;
             accessible-label: root.row-data.label + @tr(": create keyframes at the start and end");
             clicked => {
                 root.seed-keyframes(
@@ -734,8 +879,13 @@ export component ObjectSettingRow inherits Rectangle {
             color: AppTheme.muted-foreground;
             vertical-alignment: center;
         }
-        if root.row-data.keyframed : Text {
+        if root.row-data.keyframed && !root.row-data.mixed : Text {
             text: "KF";
+            color: AppTheme.warning;
+            vertical-alignment: center;
+        }
+        if root.row-data.mixed : Text {
+            text: @tr("Mixed keyframes");
             color: AppTheme.warning;
             vertical-alignment: center;
         }
@@ -750,7 +900,7 @@ export component ObjectSettingRow inherits Rectangle {
             width: 220px;
             height: 26px;
             model: root.row-data.option-labels;
-            current-index: root.row-data.selected-option;
+            current-index: root.row-data.mixed ? -1 : root.row-data.selected-option;
             enabled: root.row-data.interactive;
             private property <int> projected: root.row-data.selected-option;
             changed projected => { self.current-index = self.projected; }
@@ -764,6 +914,7 @@ export component ObjectSettingRow inherits Rectangle {
                 );
             }
         }
+        if root.row-data.mixed : Text { text: @tr("Mixed values"); color: AppTheme.warning; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
@@ -778,6 +929,8 @@ export component ObjectSettingRow inherits Rectangle {
             live-preview: true;
             horizontal-stretch: 1;
             source-text: root.row-data.text-value;
+            mixed: root.row-data.mixed;
+            placeholder: @tr("Mixed values");
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label;
             preview(value) => {
@@ -807,7 +960,7 @@ export component ObjectSettingRow inherits Rectangle {
         CommitLineEdit {
             height: 26px;
             horizontal-stretch: 1;
-            source-text: root.row-data.text-value;
+            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             commit(value) => {
                 root.set-text(
@@ -846,7 +999,7 @@ export component ObjectSettingRow inherits Rectangle {
         Button {
             horizontal-stretch: 1;
             height: 26px;
-            text: root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
+            text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value == "" ? @tr("Default") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             accessible-label: root.row-data.label + ": " + self.text;
             clicked => {
@@ -908,7 +1061,7 @@ export component ObjectSettingRow inherits Rectangle {
         CommitLineEdit {
             width: 82px;
             height: 26px;
-            source-text: root.row-data.text-value;
+            source-text: root.row-data.mixed ? @tr("Mixed values") : root.row-data.text-value;
             enabled: root.row-data.interactive;
             horizontal-alignment: center;
             commit(value) => {
@@ -925,7 +1078,7 @@ export component ObjectSettingRow inherits Rectangle {
             visible: !root.row-data.audio-plugin;
             height: 26px;
             text: root.row-data.keyframed ? root.row-data.interpolation : @tr("Interpolation");
-            enabled: root.row-data.interactive;
+            enabled: root.row-data.interactive && !root.row-data.mixed;
             clicked => {
                 root.open-easing(
                     root.row-data.effect-index,
@@ -936,7 +1089,7 @@ export component ObjectSettingRow inherits Rectangle {
             }
         }
         if root.row-data.range-mode : Text { text: "→"; vertical-alignment: center; }
-        if root.row-data.range-mode : CommitLineEdit {
+        if root.row-data.range-mode && !root.row-data.mixed : CommitLineEdit {
             width: 82px;
             height: 26px;
             source-text: root.row-data.end-text-value;
@@ -994,7 +1147,7 @@ export component ObjectSettingRow inherits Rectangle {
         if root.row-data.keyframed : Text { text: "KF"; color: AppTheme.warning; vertical-alignment: center; }
     }
 
-    if root.row-data.row-kind == "keyframes" && root.row-data.keyframed : KeyframeTrack {
+    if root.row-data.row-kind == "keyframes" && root.row-data.keyframed && !root.row-data.mixed : KeyframeTrack {
         row-data: root.row-data;
         seek(frame) => { root.seek-keyframe(frame); }
         snap(frame) => { root.snap-keyframe(frame) }

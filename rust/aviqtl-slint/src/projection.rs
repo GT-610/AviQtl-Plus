@@ -1,10 +1,10 @@
 //! Shared stable-model updates and project/transport projection.
 
-use crate::localization::{localized_effect_metadata, status_line};
+use crate::localization::{localized, localized_effect_metadata, status_line};
 use crate::object_settings::finite_f32;
 use crate::{
-    LayerData, MainWindow, MissingMediaData, ProjectTabData, SceneTabData, TimelineClipData,
-    TimelineWindow,
+    LayerData, MainWindow, MediaBinEntryData, MediaBinGroupData, MissingMediaData, ProjectTabData,
+    SceneTabData, TimelineClipData, TimelineWindow,
 };
 use aviqtl_app::settings::SettingsStore;
 use aviqtl_app::{ApplicationModel, MAX_TIMELINE_LAYERS};
@@ -51,8 +51,11 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
         update_vec_model(&timeline.get_scene_tabs(), Vec::new());
         update_vec_model(&timeline.get_clips(), Vec::new());
         update_vec_model(&timeline.get_layers(), Vec::new());
+        update_vec_model(&timeline.get_media_entries(), Vec::new());
+        update_vec_model(&timeline.get_media_groups(), Vec::new());
         timeline.set_playhead(0);
         timeline.set_duration(0);
+        timeline.set_selected_clip_count(0);
         return;
     };
     let missing_media = workspace.missing_media();
@@ -108,6 +111,7 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
                 clip_by_upper_object: clip.clip_by_upper_object,
                 selected: clip.selected,
                 primary: clip.primary,
+                midpoints: ModelRc::new(VecModel::from(workspace.clip_midpoints(clip.id))),
             }
         })
         .collect::<Vec<_>>();
@@ -123,7 +127,117 @@ pub(super) fn sync_windows(main: &MainWindow, timeline: &TimelineWindow, model: 
         })
         .collect::<Vec<_>>();
     update_vec_model(&timeline.get_layers(), layers);
+    sync_media_bin(timeline, workspace);
     sync_transport(main, timeline, model);
+}
+
+pub(super) fn sync_media_bin(timeline: &TimelineWindow, workspace: &aviqtl_app::WorkspaceModel) {
+    let bin = workspace.media_bin();
+    let query = timeline.get_media_filter().trim().to_lowercase();
+    let filter = timeline.get_media_group_filter();
+    let entries = bin
+        .entries()
+        .iter()
+        .filter(|entry| {
+            (filter == -2
+                || (filter == -1
+                    && bin
+                        .bins()
+                        .iter()
+                        .all(|group| !group.entry_ids.contains(&entry.id)))
+                || bin
+                    .bins()
+                    .iter()
+                    .any(|group| group.id == filter && group.entry_ids.contains(&entry.id)))
+                && (query.is_empty()
+                    || entry.name.to_lowercase().contains(&query)
+                    || entry.path.to_lowercase().contains(&query))
+        })
+        .map(|entry| {
+            let group = bin
+                .bins()
+                .iter()
+                .find(|group| group.entry_ids.contains(&entry.id));
+            MediaBinEntryData {
+                id: entry.id,
+                path: SharedString::from(&entry.path),
+                name: SharedString::from(&entry.name),
+                // A stable key, not a label: the panel translates it, so the kind column reads
+                // the same language as the rest of the window.
+                kind: SharedString::from(match entry.kind {
+                    aviqtl_app::media_import::MediaImportKind::Video => "video",
+                    aviqtl_app::media_import::MediaImportKind::Audio => "audio",
+                    aviqtl_app::media_import::MediaImportKind::Image => "image",
+                }),
+                group_id: group.map_or(-1, |group| group.id),
+                group_name: SharedString::from(group.map_or("", |group| group.name.as_str())),
+                group_index: group
+                    .and_then(|group| {
+                        bin.bins()
+                            .iter()
+                            .position(|candidate| candidate.id == group.id)
+                    })
+                    .map_or(-1, |index| index as i32),
+                duration_frames: entry.duration_frames,
+                in_frame: entry.in_frame,
+                out_frame: entry.out_frame,
+                selected: timeline.get_selected_media_id() == entry.id,
+            }
+        })
+        .collect::<Vec<MediaBinEntryData>>();
+    // A selection that the filter or a removal hid would leave the Remove button pointed at an
+    // entry nobody can see, so it is dropped instead of remembered.
+    let selected = timeline.get_selected_media_id();
+    if selected >= 0 && !entries.iter().any(|entry| entry.id == selected) {
+        timeline.set_selected_media_id(-1);
+    }
+    update_vec_model(&timeline.get_media_entries(), entries);
+    update_vec_model(
+        &timeline.get_media_groups(),
+        bin.bins()
+            .iter()
+            .map(|group| MediaBinGroupData {
+                id: group.id,
+                name: SharedString::from(&group.name),
+            })
+            .collect(),
+    );
+    // The filter combo shows two synthetic rows before the real groups. A removed group would
+    // otherwise leave the box pointing at a stale index, so reset to "All media" when the saved
+    // filter no longer exists.
+    let filter_still_exists =
+        filter == -2 || filter == -1 || bin.bins().iter().any(|group| group.id == filter);
+    if !filter_still_exists {
+        timeline.set_media_group_filter(-2);
+        timeline.set_selected_media_id(-1);
+    }
+    // The filter combo shows two synthetic rows before the real groups, so the host owns the
+    // whole list: a translated label cannot be produced from Slint's `@tr` for a row whose text
+    // comes from Rust, and keeping the two halves in one place is what stops them disagreeing.
+    let all_media = localized("All media", "全部媒体", "すべてのメディア");
+    let ungrouped = localized("Ungrouped", "未分组", "未分類");
+    let names = std::iter::once(all_media.to_owned())
+        .chain(std::iter::once(ungrouped.to_owned()))
+        .chain(bin.bins().iter().map(|group| group.name.clone()))
+        .map(SharedString::from)
+        .collect::<Vec<_>>();
+    // Replaced wholesale rather than updated in place: a combo box caches the label it shows and
+    // does not notice rows added to an existing model, so a fresh model is what makes the filter
+    // box show its first entry instead of staying blank.
+    timeline.set_media_group_names(ModelRc::from(Rc::new(VecModel::from(names))));
+    // The combo's index is derived here rather than kept in the panel: an empty model at startup
+    // leaves a widget holding index -1, and only the host knows which index the saved filter has.
+    let group_index = if filter == -2 {
+        0
+    } else if filter == -1 {
+        1
+    } else {
+        bin.bins()
+            .iter()
+            .position(|group| group.id == filter)
+            .map_or(0, |index| index as i32 + 2)
+    };
+    timeline.set_media_group_index(group_index);
 }
 
 fn timeline_clip_style(clip_type: &str) -> Option<(Color, bool)> {
@@ -188,6 +302,7 @@ pub(super) fn sync_transport(
         .round()
         .clamp(10.0, 400.0) as i32;
     main.set_playback_speed_percent(speed_percent);
+    timeline.set_selected_clip_count(workspace.selected_clip_count() as i32);
     main.set_playback_speed_multiplier(SharedString::from(speed_multiplier_text(speed_percent)));
     main.set_status_text(status_line(workspace.status(), workspace.status_message()));
     main.set_frame_counter_text(SharedString::from(frame_counter_text(

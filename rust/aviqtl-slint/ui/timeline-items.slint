@@ -1,4 +1,4 @@
-import { SceneTabData, TimelineClipData, LayerData, TimelineDragFeedback } from "models.slint";
+import { SceneTabData, TimelineClipData, LayerData, TimelineDragFeedback, TimelineToolFeedback } from "models.slint";
 import { AppTheme, TimelineMetrics } from "theme.slint";
 import { TabCloseButton } from "widgets.slint";
 
@@ -155,8 +155,17 @@ export component TimelineClipItem inherits Rectangle {
     callback drag-finished(string, int, float, float, bool);
     callback preview-drag(string, int, float, float, bool) -> TimelineDragFeedback;
     callback drag-ended();
+    in property <string> edit-tool: "select";
+    in property <TimelineToolFeedback> tool-feedback;
+    callback midpoint-command(string, int, int, int);
+    callback preview-timeline-tool(string, int, int, float) -> TimelineToolFeedback;
+    callback apply-timeline-tool(string, int, int, float);
     private property <TimelineDragFeedback> feedback;
     private property <bool> preview-valid: false;
+    private property <bool> tool-dragging: false;
+    private property <TimelineToolFeedback> tool-local-feedback;
+    private property <bool> midpoint-dragging: false;
+    private property <int> midpoint-old-frame: 0;
     function update-preview(ignore-snap: bool) {
         root.feedback = root.preview-drag(root.active-drag, root.clip-data.id, root.drag-x / 1px, root.drag-y / 1px, ignore-snap);
         root.preview-valid = root.feedback.valid;
@@ -195,9 +204,9 @@ export component TimelineClipItem inherits Rectangle {
     }
 
     clip-visual := Rectangle {
-        x: root.preview-valid ? (root.feedback.start - root.clip-data.start) * root.pixels-per-frame * 1px : 0px;
+        x: root.tool-dragging && root.tool-local-feedback.valid ? (root.tool-local-feedback.start - root.clip-data.start) * root.pixels-per-frame * 1px : root.preview-valid ? (root.feedback.start - root.clip-data.start) * root.pixels-per-frame * 1px : 0px;
         y: root.preview-valid ? (root.feedback.layer - root.clip-data.layer) * root.track-height : 0px;
-        width: root.preview-valid ? max(root.feedback.duration * root.pixels-per-frame * 1px, 8px) : root.active-drag == "trim-start"
+        width: root.tool-dragging && root.tool-local-feedback.valid ? max(root.tool-local-feedback.duration * root.pixels-per-frame * 1px, 8px) : root.preview-valid ? max(root.feedback.duration * root.pixels-per-frame * 1px, 8px) : root.active-drag == "trim-start"
             ? max(root.width - root.drag-x, 8px)
             : root.active-drag == "trim-end"
                 ? max(root.width + root.drag-x, 8px)
@@ -285,7 +294,27 @@ export component TimelineClipItem inherits Rectangle {
                         event.modifiers.shift
                     );
                 }
-                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool != "select" && (root.edit-tool == "slide" || root.edit-tool == "slip") {
+                    root.activate(root.clip-data.id, false);
+                    root.tool-dragging = true;
+                    root.drag-x = 0px;
+                }
+                if event.kind == PointerEventKind.move && root.tool-dragging {
+                    root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                    root.tool-local-feedback = root.preview-timeline-tool(root.edit-tool, root.clip-data.id, 1, (self.mouse-x - self.pressed-x) / 1px);
+                }
+                if event.kind == PointerEventKind.up && root.tool-dragging {
+                    root.apply-timeline-tool(root.edit-tool, root.clip-data.id, 1, (self.mouse-x - self.pressed-x) / 1px);
+                    root.tool-dragging = false;
+                    root.tool-local-feedback.valid = false;
+                    root.drag-x = 0px;
+                }
+                if event.kind == PointerEventKind.cancel && root.tool-dragging {
+                    root.tool-dragging = false;
+                    root.tool-local-feedback.valid = false;
+                    root.drag-x = 0px;
+                }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool == "select" {
                     if root.clip-data.locked {
                         root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
                     } else {
@@ -299,7 +328,7 @@ export component TimelineClipItem inherits Rectangle {
                         }
                     }
                 }
-                if event.kind == PointerEventKind.move && root.active-drag == "move" {
+                if event.kind == PointerEventKind.move && root.edit-tool == "select" && root.active-drag == "move" {
                     root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
                     root.drag-y = root.layer-delta(self.mouse-y - self.pressed-y);
                     if !root.threshold-crossed && (abs(root.drag-x) >= 3px || abs(root.drag-y) >= 3px) {
@@ -308,7 +337,7 @@ export component TimelineClipItem inherits Rectangle {
                     }
                     if root.threshold-crossed { root.update-preview(event.modifiers.shift); }
                 }
-                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "move" {
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.edit-tool == "select" && root.active-drag == "move" {
                     if root.threshold-crossed {
                         root.drag-finished("move", root.clip-data.id, root.drag-x / 1px, root.drag-y / 1px, event.modifiers.shift);
                     } else {
@@ -379,7 +408,27 @@ export component TimelineClipItem inherits Rectangle {
                     (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
-            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool != "select" && root.edit-tool != "slide" && root.edit-tool != "slip" {
+                root.activate(root.clip-data.id, false);
+                root.tool-dragging = true;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.move && root.tool-dragging {
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                root.tool-local-feedback = root.preview-timeline-tool(root.edit-tool, root.clip-data.id, 0, (self.mouse-x - self.pressed-x) / 1px);
+            }
+            if event.kind == PointerEventKind.up && root.tool-dragging {
+                root.apply-timeline-tool(root.edit-tool, root.clip-data.id, 0, (self.mouse-x - self.pressed-x) / 1px);
+                root.tool-dragging = false;
+                root.tool-local-feedback.valid = false;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.cancel && root.tool-dragging {
+                root.tool-dragging = false;
+                root.tool-local-feedback.valid = false;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool == "select" {
                 if root.clip-data.locked {
                     root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
                 } else {
@@ -390,11 +439,11 @@ export component TimelineClipItem inherits Rectangle {
                     root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
                 }
             }
-            if event.kind == PointerEventKind.move && root.active-drag == "trim-start" {
+            if event.kind == PointerEventKind.move && root.edit-tool == "select" && root.active-drag == "trim-start" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
                 root.update-preview(event.modifiers.shift);
             }
-            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-start" {
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.edit-tool == "select" && root.active-drag == "trim-start" {
                 root.drag-finished("trim-start", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
                 root.active-drag = "";
                 root.drag-x = 0px;
@@ -445,7 +494,27 @@ export component TimelineClipItem inherits Rectangle {
                     (self.absolute-position.y + self.mouse-y) / 1px
                 );
             }
-            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool != "select" && root.edit-tool != "slide" && root.edit-tool != "slip" {
+                root.activate(root.clip-data.id, false);
+                root.tool-dragging = true;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.move && root.tool-dragging {
+                root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
+                root.tool-local-feedback = root.preview-timeline-tool(root.edit-tool, root.clip-data.id, 2, (self.mouse-x - self.pressed-x) / 1px);
+            }
+            if event.kind == PointerEventKind.up && root.tool-dragging {
+                root.apply-timeline-tool(root.edit-tool, root.clip-data.id, 2, (self.mouse-x - self.pressed-x) / 1px);
+                root.tool-dragging = false;
+                root.tool-local-feedback.valid = false;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.cancel && root.tool-dragging {
+                root.tool-dragging = false;
+                root.tool-local-feedback.valid = false;
+                root.drag-x = 0px;
+            }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left && root.edit-tool == "select" {
                 if root.clip-data.locked {
                     root.activate(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
                 } else {
@@ -456,11 +525,11 @@ export component TimelineClipItem inherits Rectangle {
                     root.prepare-drag(root.clip-data.id, event.modifiers.control || event.modifiers.meta);
                 }
             }
-            if event.kind == PointerEventKind.move && root.active-drag == "trim-end" {
+            if event.kind == PointerEventKind.move && root.edit-tool == "select" && root.active-drag == "trim-end" {
                 root.drag-x = root.frame-delta(self.mouse-x - self.pressed-x);
                 root.update-preview(event.modifiers.shift);
             }
-            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.active-drag == "trim-end" {
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.edit-tool == "select" && root.active-drag == "trim-end" {
                 root.drag-finished("trim-end", root.clip-data.id, root.drag-x / 1px, 0, event.modifiers.shift);
                 root.active-drag = "";
                 root.drag-x = 0px;
@@ -473,6 +542,69 @@ export component TimelineClipItem inherits Rectangle {
             }
         }
         changed has-hover => { if !self.has-hover { root.pointer-left(); } }
+    }
+    if root.tool-dragging && root.edit-tool == "slip" && root.tool-local-feedback.valid : Rectangle {
+        // The item's own origin is the clip start, so the badge belongs at zero: adding the clip
+        // position again would push it further right for every clip later in the timeline.
+        y: -18px;
+        height: 16px;
+        width: max(root.width, 80px);
+        background: AppTheme.warning;
+        border-radius: 3px;
+        Text {
+            text: @tr("Source in: {}", round(root.tool-local-feedback.source-start));
+            color: black;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-size: 0.72rem;
+        }
+    }
+    for midpoint in root.clip-data.midpoints: Rectangle {
+        // Handles sit on the clip's own coordinates, not the drag preview, so they stay attached to
+        // the clip while the body is being dragged.
+        x: midpoint * root.pixels-per-frame * 1px - 5px;
+        y: -2px;
+        width: 10px;
+        height: 10px;
+        background: midpoint-touch.has-hover ? AppTheme.warning : AppTheme.accent-foreground;
+        border-color: AppTheme.accent;
+        border-width: 1px;
+        border-radius: 2px;
+        midpoint-touch := TouchArea {
+            width: 14px;
+            height: 18px;
+            x: -2px;
+            mouse-cursor: root.clip-data.locked ? not-allowed : ew-resize;
+            accessible-role: button;
+            accessible-label: @tr("Object midpoint at frame {}", midpoint);
+            accessible-description: root.clip-data.locked
+                ? @tr("Locked layer")
+                : @tr("Drag to move; double-click to remove");
+            pointer-event(event) => {
+                if root.clip-data.locked { return; }
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.midpoint-dragging = true;
+                    root.midpoint-old-frame = midpoint;
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.midpoint-dragging {
+                    // Midpoints are clip-local frames, and so is this pointer travel. Reading an
+                    // absolute position would mix the clip's timeline offset into the frame.
+                    let frame = (root.midpoint-old-frame
+                        + round((self.mouse-x - self.pressed-x) / (root.pixels-per-frame * 1px)))
+                        .clamp(1, max(1, root.clip-data.duration - 1));
+                    if frame != root.midpoint-old-frame {
+                        root.midpoint-command("move", root.clip-data.id, root.midpoint-old-frame, frame);
+                    }
+                    root.midpoint-dragging = false;
+                }
+                if event.kind == PointerEventKind.cancel { root.midpoint-dragging = false; }
+            }
+            double-clicked => {
+                if !root.clip-data.locked && root.clip-data.midpoints.length > 0 {
+                    root.midpoint-command("remove", root.clip-data.id, midpoint, 0);
+                }
+            }
+        }
     }
 }
 

@@ -250,6 +250,30 @@ impl MediaBin {
         removed
     }
 
+    /// Renames a group. The flat list and the entries are untouched.
+    pub fn rename_bin(&mut self, bin_id: i32, name: &str) -> bool {
+        let Some(bin) = self.bins.iter_mut().find(|bin| bin.id == bin_id) else {
+            return false;
+        };
+        if bin.name == name {
+            return false;
+        }
+        bin.name = name.to_owned();
+        true
+    }
+
+    /// Removes an entry from whichever group holds it, leaving the entry in the flat list.
+    pub fn unassign_from_bin(&mut self, entry_id: i32) -> bool {
+        let mut changed = false;
+        for bin in &mut self.bins {
+            let before = bin.entry_ids.len();
+            bin.entry_ids.retain(|existing| *existing != entry_id);
+            changed |= bin.entry_ids.len() != before;
+        }
+        self.bins.retain(|bin| !bin.entry_ids.is_empty());
+        changed
+    }
+
     /// Moves an entry within the flat list.
     pub fn reorder(&mut self, entry_id: i32, target_index: usize) -> bool {
         let Some(current) = self.entries.iter().position(|entry| entry.id == entry_id) else {

@@ -1086,14 +1086,9 @@ fn audio_plugin_rows_use_current_values_and_protect_qt_endpoints() {
     assert!(!markers.row_data(2).unwrap().removable);
 }
 
-#[test]
-fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
-    // A live drag refreshes the projected rows in place instead of rebuilding
-    // the list. Every numeric control projects a "number" row plus a
-    // "keyframes" row, so matching a row by kind alone would repaint the first
-    // numeric parameter of the stack with another effect's label, value,
-    // range, and markers.
-    let number_control = |param: &str, label: &str, value: f64, frames: &[i32]| ObjectControl {
+/// A keyframed numeric control, the shape a live drag refreshes.
+fn keyframed_number_control(param: &str, label: &str, value: f64, frames: &[i32]) -> ObjectControl {
+    ObjectControl {
         kind: ObjectControlKind::Number,
         source_kind: "slider".to_owned(),
         param: Some(param.to_owned()),
@@ -1124,8 +1119,12 @@ fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
             })
             .collect(),
         options: Vec::new(),
-    };
-    let settings = |amount: f64, amount_frames: &[i32]| ObjectSettings {
+    }
+}
+
+/// Two effects, the second of them keyframed, which is what the row-preview tests edit.
+fn keyframed_settings(amount: f64, amount_frames: &[i32]) -> ObjectSettings {
+    ObjectSettings {
         clip_id: 3,
         clip_label: "Clip".to_owned(),
         audio_plugin_mode: false,
@@ -1137,7 +1136,7 @@ fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
                 enabled: true,
                 selected: false,
                 removable: true,
-                controls: vec![number_control("size", "Size", 10.0, &[0])],
+                controls: vec![keyframed_number_control("size", "Size", 10.0, &[0])],
             },
             ObjectEffect {
                 index: 1,
@@ -1146,16 +1145,29 @@ fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
                 enabled: true,
                 selected: true,
                 removable: true,
-                controls: vec![number_control("amount", "Amount", amount, amount_frames)],
+                controls: vec![keyframed_number_control(
+                    "amount",
+                    "Amount",
+                    amount,
+                    amount_frames,
+                )],
             },
         ],
         audio_plugins: Vec::new(),
-    };
+    }
+}
 
+#[test]
+fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
+    // A live drag refreshes the projected rows in place instead of rebuilding
+    // the list. Every numeric control projects a "number" row plus a
+    // "keyframes" row, so matching a row by kind alone would repaint the first
+    // numeric parameter of the stack with another effect's label, value,
+    // range, and markers.
     // Drag the second effect's "amount" from 0.4 to 0.8 and move its second
     // keyframe; the first effect's "size" keeps its single keyframe.
-    let current_rows = object_settings_rows(&settings(0.4, &[0, 40]));
-    let updated_rows = object_settings_rows(&settings(0.8, &[0, 60]));
+    let current_rows = object_settings_rows(&keyframed_settings(0.4, &[0, 40]));
+    let updated_rows = object_settings_rows(&keyframed_settings(0.8, &[0, 60]));
     let updates = parameter_row_updates(&current_rows, &updated_rows, false, 1, "amount");
 
     assert_eq!(updates.len(), 2, "the number row and its keyframes row");
@@ -1218,6 +1230,31 @@ fn parameter_preview_rewrites_only_the_edited_parameter_rows() {
     assert!(
         updates.iter().all(|(index, _)| *index != size_number_index),
         "the other effect's rows are never rewritten"
+    );
+}
+
+#[test]
+fn a_live_preview_keeps_the_start_field_read_only() {
+    // The projection makes the interval-start field read-only when several objects are selected,
+    // because the setter behind it edits the primary clip's keyframe track. A drag refreshes the row
+    // through `parameter_row_updates`; re-enabling the field there would hand the user a control that
+    // silently edits one object while the rest of the row edits the selection.
+    let mut current_rows = object_settings_rows(&keyframed_settings(0.4, &[0, 40]));
+    let number_index = current_rows
+        .iter()
+        .position(|row| row.param_name == "amount" && row.row_kind == "number")
+        .expect("the dragged parameter has a number row");
+    current_rows[number_index].start_interactive = false;
+
+    let updated_rows = object_settings_rows(&keyframed_settings(0.8, &[0, 60]));
+    let updates = parameter_row_updates(&current_rows, &updated_rows, false, 1, "amount");
+    let (_, refreshed) = updates
+        .iter()
+        .find(|(index, _)| *index == number_index)
+        .expect("the dragged row is refreshed");
+    assert!(
+        !refreshed.start_interactive,
+        "a preview must not re-enable a start field the projection disabled"
     );
 }
 
@@ -1427,6 +1464,53 @@ fn both_windows_declare_the_same_menu_bar() {
         "the menu bar signature looks truncated: {preview:?}"
     );
     assert_eq!(preview, timeline);
+}
+
+#[test]
+fn a_mixed_property_row_is_distinct_from_a_uniform_one() {
+    use aviqtl_app::selection_edit::{SelectionProperty, SelectionValue};
+    // A control's rendered value must be the aggregate state, not the primary object's value.
+    // The projection pins all three states separately: the row carries `mixed`, and the token
+    // the UI prints for a mixed field is its own string, so it cannot be mistaken for a value.
+    let project = |properties: Vec<SelectionProperty>| {
+        properties
+            .iter()
+            .map(|property| {
+                let state = match property.value {
+                    SelectionValue::Uniform(_) => "",
+                    SelectionValue::Mixed(_) => "mixed",
+                    SelectionValue::Absent => "absent",
+                };
+                (property.effect_id.clone(), state)
+            })
+            .collect::<Vec<_>>()
+    };
+    let properties = vec![
+        SelectionProperty {
+            effect_id: "rect".into(),
+            param: Some("count".into()),
+            value: SelectionValue::Uniform(serde_json::json!(5)),
+            editable_objects: 3,
+        },
+        SelectionProperty {
+            effect_id: "blur".into(),
+            param: Some("size".into()),
+            value: SelectionValue::Mixed(serde_json::json!(3)),
+            editable_objects: 2,
+        },
+    ];
+    assert_eq!(
+        project(properties),
+        vec![("rect".to_owned(), ""), ("blur".to_owned(), "mixed")]
+    );
+    // Absent is not a value and never an editable row.
+    let absent = SelectionProperty {
+        effect_id: "mosaic".into(),
+        param: Some("size".into()),
+        value: SelectionValue::Absent,
+        editable_objects: 0,
+    };
+    assert_eq!(project(vec![absent]), vec![("mosaic".to_owned(), "absent")]);
 }
 
 #[test]

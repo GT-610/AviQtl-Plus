@@ -12,6 +12,12 @@ msgstr ""
 msgid " Keyframes"
 msgstr " 关键帧"
 
+msgid " end value"
+msgstr " 结束值"
+
+msgid " frames"
+msgstr " 帧"
+
 msgid " frames / "
 msgstr " 帧 / "
 
@@ -24,11 +30,20 @@ msgstr " 项"
 msgid " sec)"
 msgstr " 秒)"
 
+msgid " source"
+msgstr " 源"
+
+msgid " start value"
+msgstr " 起始值"
+
 msgid "+ Add Audio Plugin"
 msgstr "+ 添加音频插件"
 
 msgid "+ Add Effect"
 msgstr "+ 添加效果"
+
+msgid "+ Group"
+msgstr "+ 分组"
 
 msgid "0 / 0 frames"
 msgstr "0 / 0 帧"
@@ -72,6 +87,12 @@ msgstr "添加效果  ›"
 msgid "Add Filter Effect"
 msgstr "添加滤镜效果"
 
+msgid "Add Media..."
+msgstr "添加媒体…"
+
+msgid "Add Midpoint Here"
+msgstr "在此添加中点"
+
 msgid "Add Object"
 msgstr "添加对象"
 
@@ -84,11 +105,20 @@ msgstr "添加仓库"
 msgid "Advanced Settings"
 msgstr "详细设置"
 
+msgid "Advanced curve..."
+msgstr "高级曲线…"
+
+msgid "All effects"
+msgstr "全部效果"
+
 msgid "Allow All"
 msgstr "全部允许"
 
 msgid "Amplitude"
 msgstr "振幅"
+
+msgid "Animation layout"
+msgstr "动画布局"
 
 msgid "Appearance"
 msgstr "外观"
@@ -119,6 +149,9 @@ msgstr "音频与进度显示"
 
 msgid "Audio bitrate"
 msgstr "音频比特率"
+
+msgid "Audio layout"
+msgstr "音频布局"
 
 msgid "Audio unavailable"
 msgstr "音频不可用"
@@ -153,6 +186,9 @@ msgstr "BPM（音乐）"
 msgid "BPM Settings"
 msgstr "BPM 设置"
 
+msgid "BPM:"
+msgstr "BPM:"
+
 msgid "Back 1 Frame"
 msgstr "后退 1 帧"
 
@@ -174,6 +210,9 @@ msgstr "比特率"
 msgid "Bitrate:"
 msgstr "比特率："
 
+msgid "Bring editor windows onto this screen"
+msgstr "将编辑窗口移回当前屏幕"
+
 msgid "Browse effect catalog..."
 msgstr "浏览效果目录..."
 
@@ -182,6 +221,9 @@ msgstr "浏览对象目录..."
 
 msgid "Browse..."
 msgstr "浏览..."
+
+msgid "CRF:"
+msgstr "CRF:"
 
 msgid "Cache capacity"
 msgstr "缓存容量"
@@ -197,6 +239,9 @@ msgstr "确定要取消导出吗？\n进度将丢失。"
 
 msgid "Check for unsaved projects when exiting"
 msgstr "退出时检查未保存的项目"
+
+msgid "Clear"
+msgstr "清除"
 
 msgid "Clip by Upper Object"
 msgstr "用上方对象裁剪"
@@ -218,6 +263,9 @@ msgstr "关闭场景"
 
 msgid "Codec:"
 msgstr "编解码器："
+
+msgid "Collapse effect"
+msgstr "折叠效果"
 
 msgid "Color theme"
 msgstr "配色主题"
@@ -254,6 +302,17 @@ msgstr "当前："
 
 msgid "Current: Default"
 msgstr "当前：默认"
+
+msgctxt "edit-menu-cut"
+msgid "Cut"
+msgstr "剪切"
+
+msgctxt "timeline-cut"
+msgid "Cut"
+msgstr "剪切"
+
+msgid "Cut"
+msgstr "剪切"
 
 msgid "Dark"
 msgstr "深色"
@@ -324,17 +383,32 @@ msgstr "要丢弃“{}”的恢复快照吗？此操作无法撤销。"
 msgid "Down"
 msgstr "向下"
 
+msgid "Drag to adjust; hold Shift for fine adjustment"
+msgstr "拖动调节；按住 Shift 精细调节"
+
 msgid "Drag to change playback position on the timeline"
 msgstr "拖动以更改时间线上的播放位置"
 
 msgid "Drag to move the keyframe"
 msgstr "拖动以移动关键帧"
 
+msgid "Drag to move; double-click to remove"
+msgstr "拖动移动；双击移除"
+
 msgid "Drop here"
 msgstr "拖放到此处"
 
 msgid "Duplicate"
 msgstr "复制副本"
+
+msgid "Ease in"
+msgstr "缓入"
+
+msgid "Ease in and out"
+msgstr "缓入缓出"
+
+msgid "Ease out"
+msgstr "缓出"
 
 msgid "Edit"
 msgstr "编辑"
@@ -344,6 +418,15 @@ msgstr "编辑限制与缩放"
 
 msgid "Editing and Snap"
 msgstr "编辑与吸附"
+
+msgid "Editing layout"
+msgstr "剪辑布局"
+
+msgid "Editing {} selected objects; objects without this property and locked objects are skipped."
+msgstr "正在编辑 {} 个已选对象；不包含该属性的对象和锁定对象会被跳过。"
+
+msgid "Effect list"
+msgstr "效果列表"
 
 msgid "Effects"
 msgstr "特效"
@@ -387,6 +470,9 @@ msgstr "错误"
 msgid "Exit"
 msgstr "退出"
 
+msgid "Expand effect"
+msgstr "展开效果"
+
 msgid "Export"
 msgstr "导出"
 
@@ -402,11 +488,17 @@ msgstr "导出媒体..."
 msgid "Exporting..."
 msgstr "正在导出..."
 
+msgid "FPS:"
+msgstr "帧率:"
+
 msgid "Fast (fast)"
 msgstr "快速 (fast)"
 
 msgid "Fastest (ultrafast)"
 msgstr "最快 (ultrafast)"
+
+msgid "Favorites"
+msgstr "收藏"
 
 msgid "File"
 msgstr "文件"
@@ -456,6 +548,12 @@ msgstr "移动到开头"
 msgid "Grid Mode:"
 msgstr "网格模式："
 
+msgid "Group"
+msgstr "分组"
+
+msgid "Group name"
+msgstr "分组名称"
+
 msgid "H.264 (CPU)"
 msgstr "H.264 (CPU)"
 
@@ -473,6 +571,14 @@ msgstr "标题栏高度"
 
 msgid "Height"
 msgstr "高度"
+
+msgctxt "launcher-height"
+msgid "Height:"
+msgstr "高度（纵向）："
+
+msgctxt "settings-height"
+msgid "Height:"
+msgstr "高度："
 
 msgid "Hidden, locked"
 msgstr "隐藏，已锁定"
@@ -495,11 +601,20 @@ msgstr "高质量 (slow)"
 msgid "Highest quality (veryslow)"
 msgstr "最高质量 (veryslow)"
 
+msgid "Image"
+msgstr "图像"
+
 msgid "Image Sequence"
 msgstr "图片序列"
 
+msgid "Image format"
+msgstr "图片格式"
+
 msgid "Import AviUtl Object File (Compatibility)..."
 msgstr "导入 AviUtl 物件文件（兼容）..."
+
+msgid "In"
+msgstr "入点"
 
 msgid "Increasing this count increases memory usage"
 msgstr "增加次数会提高内存使用量"
@@ -512,6 +627,9 @@ msgstr "向上插入图层（1 层）"
 
 msgid "Insert Layer Below (1 row)"
 msgstr "向下插入图层（1 层）"
+
+msgid "Insert at Playhead"
+msgstr "在播放头处插入"
 
 msgid "Insert multiple layers"
 msgstr "插入多个图层"
@@ -573,6 +691,9 @@ msgstr "图层"
 msgid "Light"
 msgstr "浅色"
 
+msgid "Linear"
+msgstr "线性"
+
 msgid "Load Preset"
 msgstr "加载预设"
 
@@ -584,6 +705,9 @@ msgstr "锁定此图层"
 
 msgid "Lock/Unlock Current Layer"
 msgstr "锁定/解锁当前图层"
+
+msgid "Locked layer"
+msgstr "图层已锁定"
 
 msgid "Low quality"
 msgstr "低质量"
@@ -615,6 +739,12 @@ msgstr "插件最大块大小"
 msgid "Maximum zoom value"
 msgstr "最大缩放值"
 
+msgid "Media"
+msgstr "媒体"
+
+msgid "Media Library"
+msgstr "媒体库"
+
 msgid "Memory and Cache"
 msgstr "内存与缓存"
 
@@ -629,6 +759,12 @@ msgstr "最小缩放值"
 
 msgid "Missing Media"
 msgstr "缺失媒体"
+
+msgid "Mixed keyframes"
+msgstr "关键帧不同"
+
+msgid "Mixed values"
+msgstr "多个值"
 
 msgid "Move Layer Down"
 msgstr "下移图层"
@@ -690,6 +826,12 @@ msgstr "没有匹配项"
 msgid "No matching objects"
 msgstr "没有匹配的对象"
 
+msgid "No media matches this filter. Add a file or clear the search."
+msgstr "没有媒体符合当前筛选。请添加文件或清除搜索。"
+
+msgid "No movement"
+msgstr "无移动"
+
 msgid "No packages in this category."
 msgstr "此分类下没有软件包。"
 
@@ -714,8 +856,14 @@ msgstr "对象 / 效果"
 msgid "Object List"
 msgstr "对象列表"
 
+msgid "Object midpoint at frame {}"
+msgstr "第 {} 帧的对象中点"
+
 msgid "Objects"
 msgstr "对象"
+
+msgid "Objects disagree"
+msgstr "对象的值不同"
 
 msgid "Offset (Seconds):"
 msgstr "偏移（秒）："
@@ -728,6 +876,12 @@ msgstr "打开现有项目..."
 
 msgid "Open Project"
 msgstr "打开项目"
+
+msgid "Out"
+msgstr "出点"
+
+msgid "Overwrite"
+msgstr "覆盖"
 
 msgid "Package Manager"
 msgstr "软件包管理器"
@@ -780,6 +934,9 @@ msgstr "预取帧数"
 msgid "Preset:"
 msgstr "预设："
 
+msgid "Press a shortcut. Escape cancels."
+msgstr "请按下快捷键。Esc 取消。"
+
 msgid "Preview"
 msgstr "预览"
 
@@ -804,6 +961,9 @@ msgstr "项目设置"
 msgid "Project Settings..."
 msgstr "项目设置..."
 
+msgid "Properties apply to the selection"
+msgstr "属性将应用到所选对象"
+
 msgid "Quality mode:"
 msgstr "质量模式："
 
@@ -812,6 +972,12 @@ msgstr "范围"
 
 msgid "Recent Projects"
 msgstr "最近使用的项目"
+
+msgid "Recently used"
+msgstr "最近使用"
+
+msgid "Record"
+msgstr "录入"
 
 msgid "Recover"
 msgstr "恢复"
@@ -824,6 +990,18 @@ msgstr "重做"
 
 msgid "Reload"
 msgstr "重新加载"
+
+msgid "Remove"
+msgstr "移除"
+
+msgid "Remove Current Group"
+msgstr "删除当前分组"
+
+msgid "Rename"
+msgstr "重命名"
+
+msgid "Rename group"
+msgstr "重命名分组"
 
 msgid "Render scale"
 msgstr "渲染缩放"
@@ -840,8 +1018,17 @@ msgstr "仓库"
 msgid "Reserved index count"
 msgstr "索引预留数量"
 
+msgid "Resize clip end"
+msgstr "调整片段终点"
+
+msgid "Resize clip start"
+msgstr "调整片段起点"
+
 msgid "Resolution:"
 msgstr "分辨率："
+
+msgid "Restore saved layout"
+msgstr "恢复已保存布局"
 
 msgid "Right drag: Pan  Wheel: Zoom"
 msgstr "右键拖动：平移  滚轮：缩放"
@@ -849,20 +1036,31 @@ msgstr "右键拖动：平移  滚轮：缩放"
 msgid "Right drag: pan  Wheel: zoom  Left drag: handle  Double-click: add  Right-click: delete"
 msgstr "右键拖动：平移  滚轮：缩放  左键拖动：控制柄  双击：添加  右键单击：删除"
 
+msgid "Ripple Trim"
+msgstr "波纹修剪"
+
+msgid "Roll Edit"
+msgstr "滚动编辑"
+
 msgid "Ruler height"
 msgstr "标尺高度"
 
 msgid "Sample 123"
 msgstr "示例 Sample 123"
 
-msgid "Search catalog..."
-msgstr "搜索目录..."
-
 msgid "Sample Rate:"
 msgstr "采样率："
 
 msgid "Sample rate"
 msgstr "采样频率"
+
+msgctxt "confirm-save"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "save-project"
+msgid "Save"
+msgstr "覆盖保存"
 
 msgid "Save As"
 msgstr "另存为"
@@ -878,6 +1076,9 @@ msgstr "覆盖保存项目"
 
 msgid "Save Project As..."
 msgstr "项目另存为..."
+
+msgid "Save current layout"
+msgstr "保存当前布局"
 
 msgid "Saved {}"
 msgstr "保存于 {}"
@@ -897,11 +1098,20 @@ msgstr "场景设置..."
 msgid "Search Paths"
 msgstr "搜索路径"
 
+msgid "Search catalog..."
+msgstr "搜索目录..."
+
+msgid "Search commands or shortcuts..."
+msgstr "搜索命令或快捷键…"
+
 msgid "Search effects/objects..."
 msgstr "搜索效果/对象..."
 
 msgid "Search font names..."
 msgstr "搜索字体名称..."
+
+msgid "Search media"
+msgstr "搜索媒体"
 
 msgid "Search name, ID, category, or format..."
 msgstr "搜索名称、ID、类别或格式..."
@@ -918,6 +1128,9 @@ msgstr "搜索..."
 msgid "Seek Bar"
 msgstr "进度条"
 
+msgid "Select All"
+msgstr "全选"
+
 msgid "Select Color"
 msgstr "选择颜色"
 
@@ -933,6 +1146,9 @@ msgstr "请选择要授予此插件的权限："
 msgid "Selected Object Settings"
 msgstr "所选对象设置"
 
+msgid "Selection Tool"
+msgstr "选择工具"
+
 msgid "Sequence number digits"
 msgstr "序列编号位数"
 
@@ -944,6 +1160,9 @@ msgstr "设置对话框"
 
 msgid "Settings Dialog - "
 msgstr "设置对话框 - "
+
+msgid "Settings Dialog - {} selected objects"
+msgstr "设置对话框 - 已选 {} 个对象"
 
 msgid "Settings are saved with “Apply” or “OK”"
 msgstr "设置会在点击“应用”或“OK”后保存"
@@ -960,11 +1179,29 @@ msgstr "显示时间线"
 msgid "Show all layers"
 msgstr "显示所有图层"
 
+msgid "Show or hide the media library"
+msgstr "显示或隐藏媒体库"
+
 msgid "Show this layer"
 msgstr "显示此图层"
 
 msgid "Show/Hide Current Layer"
 msgstr "显示/隐藏当前图层"
+
+msgid "Slide Clip"
+msgstr "滑动片段"
+
+msgid "Slip Media"
+msgstr "滑移媒体"
+
+msgid "Source in"
+msgstr "源入点"
+
+msgid "Source in: {}"
+msgstr "源入点：{}"
+
+msgid "Source out"
+msgstr "源出点"
 
 msgid "Speed"
 msgstr "速度"
@@ -1032,6 +1269,9 @@ msgstr "时间线编辑区域"
 msgid "Timeline zoom"
 msgstr "时间线缩放率"
 
+msgid "Toggle favorite"
+msgstr "切换收藏"
+
 msgid "Tools"
 msgstr "工具"
 
@@ -1095,6 +1335,17 @@ msgstr "启用后，检测到 plugins 文件夹变更时将自动重新加载插
 msgid "Width"
 msgstr "宽度"
 
+msgctxt "launcher-width"
+msgid "Width:"
+msgstr "宽度（横向）："
+
+msgctxt "settings-width"
+msgid "Width:"
+msgstr "宽度："
+
+msgid "Workspace"
+msgstr "工作区"
+
 msgid "Yes"
 msgstr "是"
 
@@ -1119,142 +1370,8 @@ msgstr "缩放："
 msgid "{} missing media files"
 msgstr "缺失 {} 个媒体文件"
 
+msgid "{} selected objects"
+msgstr "已选 {} 个对象"
+
 msgid "‹ Back"
 msgstr "‹ 返回"
-
-msgctxt "confirm-save"
-msgid "Save"
-msgstr "保存"
-
-msgctxt "edit-menu-cut"
-msgid "Cut"
-msgstr "剪切"
-
-msgctxt "launcher-height"
-msgid "Height:"
-msgstr "高度（纵向）："
-
-msgctxt "launcher-width"
-msgid "Width:"
-msgstr "宽度（横向）："
-
-msgctxt "save-project"
-msgid "Save"
-msgstr "覆盖保存"
-
-msgctxt "settings-height"
-msgid "Height:"
-msgstr "高度："
-
-msgctxt "settings-width"
-msgid "Width:"
-msgstr "宽度："
-
-msgctxt "timeline-cut"
-msgid "Cut"
-msgstr "剪切"
-
-msgid "Cut"
-msgstr "剪切"
-
-msgid "Select All"
-msgstr "全选"
-
-msgid " start value"
-msgstr " 起始值"
-
-msgid " end value"
-msgstr " 结束值"
-
-msgid "Advanced curve..."
-msgstr "高级曲线…"
-
-msgid "All effects"
-msgstr "全部效果"
-
-msgid "Animation layout"
-msgstr "动画布局"
-
-msgid "Audio layout"
-msgstr "音频布局"
-
-msgid "Bring editor windows onto this screen"
-msgstr "将编辑窗口移回当前屏幕"
-
-msgid "Clear"
-msgstr "清除"
-
-msgid "Collapse effect"
-msgstr "折叠效果"
-
-msgid "Drag to adjust; hold Shift for fine adjustment"
-msgstr "拖动调节；按住 Shift 精细调节"
-
-msgid "Ease in"
-msgstr "缓入"
-
-msgid "Ease in and out"
-msgstr "缓入缓出"
-
-msgid "Ease out"
-msgstr "缓出"
-
-msgid "Editing layout"
-msgstr "剪辑布局"
-
-msgid "Effect list"
-msgstr "效果列表"
-
-msgid "Expand effect"
-msgstr "展开效果"
-
-msgid "Favorites"
-msgstr "收藏"
-
-msgid "Linear"
-msgstr "线性"
-
-msgid "No movement"
-msgstr "无移动"
-
-msgid "Press a shortcut. Escape cancels."
-msgstr "请按下快捷键。Esc 取消。"
-
-msgid "Recently used"
-msgstr "最近使用"
-
-msgid "Record"
-msgstr "录入"
-
-msgid "Restore saved layout"
-msgstr "恢复已保存布局"
-
-msgid "Save current layout"
-msgstr "保存当前布局"
-
-msgid "Search commands or shortcuts..."
-msgstr "搜索命令或快捷键…"
-
-msgid "Toggle favorite"
-msgstr "切换收藏"
-
-msgid "Workspace"
-msgstr "工作区"
-
-msgid "BPM:"
-msgstr "BPM:"
-
-msgid "FPS:"
-msgstr "帧率:"
-
-msgid "Image format"
-msgstr "图片格式"
-
-msgid "Resize clip end"
-msgstr "调整片段终点"
-
-msgid "Resize clip start"
-msgstr "调整片段起点"
-
-msgid "CRF:"
-msgstr "CRF:"

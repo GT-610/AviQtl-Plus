@@ -40,7 +40,7 @@ use aviqtl_app::settings::SettingsStore;
 use aviqtl_app::timeline_interaction::{TimelineDragKind, TimelineDragRequest};
 use aviqtl_app::{
     ApplicationModel, LifecycleStep, MAX_TIMELINE_LAYER, MAX_TIMELINE_LAYERS, ProjectSettingsInput,
-    SaveDecision, SceneSettingsInput, WorkspaceModel,
+    SaveDecision, SceneSettingsInput, TrimEdge, WorkspaceModel,
 };
 use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
 use slint::{CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, VecModel};
@@ -254,6 +254,92 @@ pub(super) fn install_timeline_file_drop(
             }
             EventResult::Propagate
         });
+}
+
+fn timeline_edge(edge: i32) -> TrimEdge {
+    if edge == 0 {
+        TrimEdge::Start
+    } else {
+        TrimEdge::End
+    }
+}
+
+fn preview_timeline_tool(
+    model: &ApplicationModel,
+    tool: &str,
+    clip_id: i32,
+    edge: i32,
+    dx: f32,
+    pixels_per_frame: f32,
+    minimum_duration_frames: i32,
+) -> crate::TimelineToolFeedback {
+    let Some(workspace) = model.current_workspace() else {
+        return Default::default();
+    };
+    let delta = (dx / pixels_per_frame.max(0.0001)).round() as i32;
+    let Some(clip) = workspace
+        .document()
+        .clips
+        .iter()
+        .find(|clip| clip.id == clip_id)
+    else {
+        return Default::default();
+    };
+    let updates = match tool {
+        "ripple" => workspace
+            .preview_ripple_trim(clip_id, timeline_edge(edge), delta, minimum_duration_frames)
+            .ok(),
+        "roll" => aviqtl_app::plan_clip_roll(
+            workspace.document(),
+            workspace.selected_scene(),
+            clip_id,
+            timeline_edge(edge),
+            delta,
+            minimum_duration_frames,
+        )
+        .ok(),
+        "slide" => aviqtl_app::plan_clip_slide(
+            workspace.document(),
+            workspace.selected_scene(),
+            clip_id,
+            delta,
+        )
+        .ok(),
+        _ => None,
+    };
+    if tool == "slip" {
+        let current = clip
+            .effects
+            .iter()
+            .find(|effect| effect.id == clip.clip_type)
+            .and_then(|effect| {
+                effect.params.get(if clip.clip_type == "audio" {
+                    "startTime"
+                } else {
+                    "startFrame"
+                })
+            })
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        let source_start = workspace.preview_slip(clip_id, delta);
+        return crate::TimelineToolFeedback {
+            valid: source_start.is_some(),
+            start: clip.start,
+            duration: clip.duration,
+            source_start: source_start.unwrap_or(current) as f32,
+        };
+    }
+    let Some(update) =
+        updates.and_then(|updates| updates.into_iter().find(|update| update.clip_id == clip_id))
+    else {
+        return Default::default();
+    };
+    crate::TimelineToolFeedback {
+        valid: true,
+        start: update.start,
+        duration: update.duration,
+        source_start: 0.0,
+    }
 }
 
 pub(super) fn install_callbacks(
@@ -1217,8 +1303,24 @@ pub(super) fn install_callbacks(
     });
 
     let timeline_window = timeline.as_weak();
+    let media_library_window = timeline_window.clone();
     main.on_show_timeline(move || {
         if let Some(window) = timeline_window.upgrade() {
+            let _ = show_and_redraw(&window);
+        }
+    });
+    // The preview window has no media panel of its own; the command raises the timeline and
+    // leaves its docked library open, so both menu bars route to the same place.
+    main.on_show_timeline_media_library(move || {
+        if let Some(window) = media_library_window.upgrade() {
+            window.set_media_bin_visible(true);
+            let _ = show_and_redraw(&window);
+        }
+    });
+    let tool_menu_window = timeline.as_weak();
+    main.on_choose_edit_tool(move |tool| {
+        if let Some(window) = tool_menu_window.upgrade() {
+            window.set_edit_tool(tool);
             let _ = show_and_redraw(&window);
         }
     });
@@ -1560,6 +1662,168 @@ pub(super) fn install_callbacks(
             sync_scene_settings(&window, true, -1, &input);
             let _ = show_and_redraw(&window);
         }
+    });
+
+    let media_add_model = model.clone();
+    let media_add_settings = settings.clone();
+    let media_add_main = main.as_weak();
+    let media_add_timeline = timeline.as_weak();
+    timeline.on_add_media(move || {
+        let Some(paths) = crate::dialogs::choose_media_files() else {
+            return;
+        };
+        if let Some(workspace) = media_add_model.borrow_mut().current_workspace_mut() {
+            let fps = workspace
+                .selected_scene_document()
+                .map_or(60.0, |scene| scene.fps);
+            let duration = media_add_settings
+                .borrow()
+                .i32_value("defaultClipDuration", 100);
+            workspace.add_media_to_bin(&paths, fps, duration);
+        }
+        sync_weak_windows(&media_add_main, &media_add_timeline, &media_add_model);
+    });
+    let media_model = model.clone();
+    let media_main = main.as_weak();
+    let media_timeline = timeline.as_weak();
+    timeline.on_remove_media(move |id| {
+        if let Some(workspace) = media_model.borrow_mut().current_workspace_mut() {
+            workspace.remove_media_from_bin(id);
+        }
+        sync_weak_windows(&media_main, &media_timeline, &media_model);
+    });
+    let media_filter_model = model.clone();
+    let media_filter_timeline = timeline.as_weak();
+    timeline.on_media_filter_changed(move || {
+        if let (Some(window), Some(workspace)) = (
+            media_filter_timeline.upgrade(),
+            media_filter_model.borrow().current_workspace(),
+        ) {
+            crate::projection::sync_media_bin(&window, workspace);
+        }
+    });
+    let media_range_model = model.clone();
+    let media_range_main = main.as_weak();
+    let media_range_timeline = timeline.as_weak();
+    timeline.on_set_media_range(move |id, start, end| {
+        if let Some(workspace) = media_range_model.borrow_mut().current_workspace_mut() {
+            workspace.set_media_bin_range(id, Some(start), Some(end));
+        }
+        sync_weak_windows(&media_range_main, &media_range_timeline, &media_range_model);
+    });
+    let media_group_model = model.clone();
+    let media_group_main = main.as_weak();
+    let media_group_timeline = timeline.as_weak();
+    timeline.on_create_media_group(move || {
+        let name = format!(
+            "Bin {}",
+            media_group_model
+                .borrow()
+                .current_workspace()
+                .map_or(1, |workspace| workspace.media_bin().bins().len() + 1)
+        );
+        let id = media_group_model
+            .borrow_mut()
+            .current_workspace_mut()
+            .and_then(|workspace| workspace.create_media_bin_group(&name))
+            .unwrap_or(-1);
+        sync_weak_windows(&media_group_main, &media_group_timeline, &media_group_model);
+        id
+    });
+    let media_remove_group_model = model.clone();
+    let media_remove_group_main = main.as_weak();
+    let media_remove_group_timeline = timeline.as_weak();
+    timeline.on_remove_media_group(move |id| {
+        if let Some(workspace) = media_remove_group_model
+            .borrow_mut()
+            .current_workspace_mut()
+        {
+            workspace.remove_media_bin_group(id);
+        }
+        sync_weak_windows(
+            &media_remove_group_main,
+            &media_remove_group_timeline,
+            &media_remove_group_model,
+        );
+    });
+    let media_rename_model = model.clone();
+    let media_rename_main = main.as_weak();
+    let media_rename_timeline = timeline.as_weak();
+    timeline.on_rename_media_group(move |id, name| {
+        if let Some(workspace) = media_rename_model.borrow_mut().current_workspace_mut() {
+            workspace.rename_media_bin_group(id, name.as_str());
+        }
+        sync_weak_windows(
+            &media_rename_main,
+            &media_rename_timeline,
+            &media_rename_model,
+        );
+    });
+    let media_assign_model = model.clone();
+    let media_assign_main = main.as_weak();
+    let media_assign_timeline = timeline.as_weak();
+    timeline.on_assign_media_group(move |id, group| {
+        if let Some(workspace) = media_assign_model.borrow_mut().current_workspace_mut() {
+            workspace.assign_media_to_bin_group(id, group);
+        }
+        sync_weak_windows(
+            &media_assign_main,
+            &media_assign_timeline,
+            &media_assign_model,
+        );
+    });
+    let media_insert_model = model.clone();
+    let media_insert_catalog = effect_catalog.clone();
+    let media_insert_main = main.as_weak();
+    let media_insert_timeline = timeline.as_weak();
+    timeline.on_insert_media(move |id, overwrite| {
+        let Some(window) = media_insert_timeline.upgrade() else {
+            return;
+        };
+        let catalog = media_insert_catalog.borrow();
+        if let Some(workspace) = media_insert_model.borrow_mut().current_workspace_mut() {
+            workspace.insert_media_from_bin(
+                id,
+                workspace.playhead(),
+                workspace.selected_layer(),
+                window.get_maximum_layers(),
+                &catalog,
+                overwrite,
+            );
+        }
+        sync_weak_windows(
+            &media_insert_main,
+            &media_insert_timeline,
+            &media_insert_model,
+        );
+    });
+    let midpoint_model = model.clone();
+    let midpoint_main = main.as_weak();
+    let midpoint_timeline = timeline.as_weak();
+    timeline.on_midpoint_command(move |action, clip_id, old, new| {
+        if let Some(workspace) = midpoint_model.borrow_mut().current_workspace_mut() {
+            match action.as_str() {
+                "add" => {
+                    workspace.add_clip_midpoint(
+                        clip_id,
+                        new - workspace
+                            .document()
+                            .clips
+                            .iter()
+                            .find(|clip| clip.id == clip_id)
+                            .map_or(0, |clip| clip.start),
+                    );
+                }
+                "remove" => {
+                    workspace.remove_clip_midpoint(clip_id, old);
+                }
+                "move" => {
+                    workspace.move_clip_midpoint(clip_id, old, new);
+                }
+                _ => {}
+            };
+        }
+        sync_weak_windows(&midpoint_main, &midpoint_timeline, &midpoint_model);
     });
 
     let timeline_settings = object_settings.as_weak();
@@ -2160,6 +2424,63 @@ pub(super) fn install_callbacks(
         }
         sync_weak_windows(&clip_drag_main, &clip_drag_timeline, &clip_drag_model);
     });
+
+    let tool_preview_model = model.clone();
+    let tool_preview_window = timeline.as_weak();
+    timeline.on_preview_timeline_tool(move |tool, clip_id, edge, dx| {
+        let Some(window) = tool_preview_window.upgrade() else {
+            return Default::default();
+        };
+        preview_timeline_tool(
+            &tool_preview_model.borrow(),
+            tool.as_str(),
+            clip_id,
+            edge,
+            dx,
+            window.get_pixels_per_frame(),
+            window.get_minimum_clip_duration_frames(),
+        )
+    });
+    let tool_model = model.clone();
+    let tool_main = main.as_weak();
+    let tool_timeline = timeline.as_weak();
+    timeline.on_apply_timeline_tool(move |tool, clip_id, edge, dx| {
+        let (delta, minimum_duration_frames) = tool_timeline.upgrade().map_or((0, 5), |window| {
+            (
+                (dx / window.get_pixels_per_frame().max(0.0001)).round() as i32,
+                window.get_minimum_clip_duration_frames(),
+            )
+        });
+        if let Some(workspace) = tool_model.borrow_mut().current_workspace_mut() {
+            match tool.as_str() {
+                "ripple" => {
+                    workspace.ripple_trim_clip(
+                        clip_id,
+                        timeline_edge(edge),
+                        delta,
+                        minimum_duration_frames,
+                    );
+                }
+                "roll" => {
+                    workspace.roll_clip_cut(
+                        clip_id,
+                        timeline_edge(edge),
+                        delta,
+                        minimum_duration_frames,
+                    );
+                }
+                "slide" => {
+                    workspace.slide_clip(clip_id, delta);
+                }
+                "slip" => {
+                    workspace.slip_clip(clip_id, delta);
+                }
+                _ => {}
+            }
+        }
+        sync_weak_windows(&tool_main, &tool_timeline, &tool_model);
+    });
+    timeline.on_timeline_tool_cancelled(|| {});
 
     let layer_model = model.clone();
     let layer_contents_model = model.clone();

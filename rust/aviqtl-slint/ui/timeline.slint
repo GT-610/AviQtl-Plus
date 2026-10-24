@@ -7,7 +7,11 @@ import {
     TimelineMediaDropResult,
     EffectCatalogItemData,
     ObjectCatalogMenuCategoryData,
+    MediaBinEntryData,
+    MediaBinGroupData,
+    TimelineToolFeedback,
 } from "models.slint";
+import { MediaBinPanel } from "media-bin.slint";
 import { Button, ComboBox, LineEdit, RadioGroup, ScrollView, SpinBox } from "std-widgets.slint";
 import { AppTheme, TimelineMetrics } from "theme.slint";
 import { SceneTab, LayerHeaderItem, TimelineClipItem } from "timeline-items.slint";
@@ -16,9 +20,11 @@ import { TabAddButton } from "widgets.slint";
 export component TimelineWindow inherits Window {
     title: @tr("Timeline");
     preferred-width: 1280px;
-    preferred-height: 300px;
+    preferred-height: 340px;
     min-width: 720px;
-    min-height: 220px;
+    // The dock needs room for the list and the selected entry's editor; a shorter window would
+    // show neither. Collapsing the library gives the height back.
+    min-height: root.media-bin-visible ? 470px : 300px;
     forward-focus: timeline-shortcuts;
     private property <bool> drag-active: false;
     private property <TimelineDragFeedback> drag-feedback;
@@ -26,6 +32,21 @@ export component TimelineWindow inherits Window {
     in property <[SceneTabData]> scene-tabs;
     in property <[TimelineClipData]> clips;
     in property <[LayerData]> layers;
+    in property <[MediaBinEntryData]> media-entries;
+    in property <[MediaBinGroupData]> media-groups;
+    in property <[string]> media-group-names;
+    in-out property <bool> media-bin-visible: false;
+    in-out property <string> media-filter: "";
+    in-out property <int> media-group-filter: -2;
+    // Index into `media-group-names`, kept by the host so a startup with an empty model cannot
+    // leave the filter combo showing nothing.
+    in-out property <int> media-group-index: 0;
+    in-out property <int> selected-media-id: -1;
+    changed media-filter => { root.media-filter-changed(); }
+    changed media-group-filter => { root.media-filter-changed(); }
+    in-out property <string> edit-tool: "select";
+    in-out property <TimelineToolFeedback> tool-feedback;
+    private property <int> tool-active-clip: -1;
     in property <[EffectCatalogItemData]> object-catalog-items;
     in property <[string]> object-catalog-categories;
     in property <[EffectCatalogItemData]> context-catalog-items;
@@ -34,6 +55,7 @@ export component TimelineWindow inherits Window {
     in property <int> duration: 3600;
     in property <int> playhead: 0;
     in property <int> selected-layer: 0;
+    in property <int> selected-clip-count: 0;
     in-out property <float> pixels-per-frame: 1;
     in property <int> zoom-min: 10;
     in property <int> zoom-max: 400;
@@ -197,6 +219,19 @@ export component TimelineWindow inherits Window {
     callback show-about();
     callback workspace-action(string);
     callback manage-missing-media();
+    callback add-media();
+    callback remove-media(int);
+    callback insert-media(int, bool);
+    callback set-media-range(int, int, int);
+    callback create-media-group() -> int;
+    callback remove-media-group(int);
+    callback assign-media-group(int, int);
+    callback rename-media-group(int, string);
+    callback media-filter-changed();
+    callback midpoint-command(string, int, int, int);
+    callback preview-timeline-tool(string, int, int, float) -> TimelineToolFeedback;
+    callback apply-timeline-tool(string, int, int, float);
+    callback timeline-tool-cancelled();
 
     MenuBar {
         Menu {
@@ -226,6 +261,15 @@ export component TimelineWindow inherits Window {
             title: @tr("Edit");
             MenuItem { title: @tr("Undo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[7] : root.no-shortcut; icon: @image-url("icons/undo.svg"); enabled: !root.save-confirmation-visible; activated => { root.undo(); } }
             MenuItem { title: @tr("Redo"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[8] : root.no-shortcut; icon: @image-url("icons/redo.svg"); enabled: !root.save-confirmation-visible; activated => { root.redo(); } }
+            MenuSeparator { }
+            // The trim tools keep their toolbar picker as the primary control; these entries make
+            // the same modes discoverable from the keyboard and the menu, which is where the
+            // batch 4 tools were previously missing.
+            MenuItem { title: @tr("Selection Tool"); checkable: true; checked: root.edit-tool == "select"; activated => { root.edit-tool = "select"; } }
+            MenuItem { title: @tr("Ripple Trim"); checkable: true; checked: root.edit-tool == "ripple"; activated => { root.edit-tool = "ripple"; } }
+            MenuItem { title: @tr("Roll Edit"); checkable: true; checked: root.edit-tool == "roll"; activated => { root.edit-tool = "roll"; } }
+            MenuItem { title: @tr("Slide Clip"); checkable: true; checked: root.edit-tool == "slide"; activated => { root.edit-tool = "slide"; } }
+            MenuItem { title: @tr("Slip Media"); checkable: true; checked: root.edit-tool == "slip"; activated => { root.edit-tool = "slip"; } }
         }
         Menu {
             title: @tr("Settings");
@@ -235,6 +279,7 @@ export component TimelineWindow inherits Window {
         }
         Menu {
             title: @tr("View");
+            MenuItem { title: @tr("Media Library"); checkable: true; checked <=> root.media-bin-visible; }
             MenuItem { title: @tr("Show Timeline"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[21] : root.no-shortcut; icon: @image-url("icons/timeline.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-timeline(); } }
             MenuItem { title: @tr("Show Settings Dialog"); shortcut: root.menu-accelerators-enabled ? root.menu-shortcuts[22] : root.no-shortcut; icon: @image-url("icons/settings.svg"); enabled: !root.save-confirmation-visible; activated => { root.show-object-settings(); } }
             Menu {
@@ -254,6 +299,21 @@ export component TimelineWindow inherits Window {
             MenuSeparator { }
             MenuItem { title: @tr("About"); enabled: !root.save-confirmation-visible; activated => { root.show-about(); } }
         }
+    }
+
+    function edit-tool-index() -> int {
+        if root.edit-tool == "ripple" { return 1; }
+        if root.edit-tool == "roll" { return 2; }
+        if root.edit-tool == "slide" { return 3; }
+        if root.edit-tool == "slip" { return 4; }
+        return 0;
+    }
+    function edit-tool-name(index: int) -> string {
+        if index == 1 { return "ripple"; }
+        if index == 2 { return "roll"; }
+        if index == 3 { return "slide"; }
+        if index == 4 { return "slip"; }
+        return "select";
     }
 
     function zoom-percent-to-scale(percent: float) -> float {
@@ -542,9 +602,12 @@ export component TimelineWindow inherits Window {
             }
         }
 
-        VerticalLayout {
+        HorizontalLayout {
             spacing: 0px;
-            Rectangle {
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 0px;
+                Rectangle {
             height: root.timeline-header-height * 1px;
             background: AppTheme.raised-background;
             HorizontalLayout {
@@ -572,6 +635,22 @@ export component TimelineWindow inherits Window {
                     }
                 }
                 TabAddButton { accessible-name: @tr("Create New Scene"); clicked => { root.show-scene-settings(); } }
+                Button {
+                    width: 64px;
+                    text: root.media-bin-visible ? "◀ " + @tr("Media") : "▶ " + @tr("Media");
+                    checkable: true;
+                    checked <=> root.media-bin-visible;
+                    accessible-label: @tr("Show or hide the media library");
+                }
+                ComboBox {
+                    min-width: 124px;
+                    max-width: 124px;
+                    model: [@tr("Selection Tool"), @tr("Ripple Trim"), @tr("Roll Edit"), @tr("Slide Clip"), @tr("Slip Media")];
+                    current-index: root.edit-tool-index();
+                    selected(value) => {
+                        root.edit-tool = root.edit-tool-name(self.current-index);
+                    }
+                }
             }
         }
             Rectangle {
@@ -900,6 +979,25 @@ export component TimelineWindow inherits Window {
                     width: max(clip.duration * root.pixels-per-frame * 1px, 8px);
                     height: max(root.timeline-track-height * 1px - 6px, 1px);
                     clip-data: clip;
+                    edit-tool: root.edit-tool;
+                    tool-feedback: root.tool-active-clip == clip.id ? root.tool-feedback : {};
+                    midpoint-command(action, id, old, new) => { root.midpoint-command(action, id, old, new); }
+                    preview-timeline-tool(tool, id, edge, dx) => {
+                        root.tool-feedback = root.preview-timeline-tool(tool, id, edge, dx);
+                        root.tool-active-clip = id;
+                        return root.tool-feedback;
+                    }
+                    apply-timeline-tool(tool, id, edge, dx) => {
+                        root.apply-timeline-tool(tool, id, edge, dx);
+                        root.tool-active-clip = -1;
+                        root.tool-feedback = {};
+                        // Ripple, roll, slide, and slip are one-shot commands: after the gesture the
+                        // pointer returns to normal selection, so the next click is not a surprise
+                        // edit. The toolbar keeps the mode until the user changes it only while the
+                        // gesture is live.
+                        root.edit-tool = "select";
+                        root.timeline-tool-cancelled();
+                    }
                     playhead: root.playhead;
                     pixels-per-frame: root.timeline-scale;
                     track-height: root.timeline-track-height * 1px;
@@ -999,6 +1097,25 @@ export component TimelineWindow inherits Window {
                 }
             }
         }
+        }
+            if root.media-bin-visible: MediaBinPanel {
+                width: 280px;
+                entries: root.media-entries;
+                groups: root.media-groups;
+                group-names: root.media-group-names;
+                filter <=> root.media-filter;
+                group-filter <=> root.media-group-filter;
+                group-index <=> root.media-group-index;
+                selected-id <=> root.selected-media-id;
+                add-media => { root.add-media(); }
+                remove-media(id) => { root.remove-media(id); }
+                insert-media(id, overwrite) => { root.insert-media(id, overwrite); }
+                set-media-range(id, start, end) => { root.set-media-range(id, start, end); }
+                create-group => { root.create-media-group() }
+                remove-group(id) => { root.remove-media-group(id); }
+                assign-group(id, group) => { root.assign-media-group(id, group); }
+                rename-group(id, name) => { root.rename-media-group(id, name); }
+            }
         }
     }
 
@@ -1269,6 +1386,13 @@ export component TimelineWindow inherits Window {
             if root.context-target-kind > 0 : MenuItem {
                 title: @tr("Delete");
                 activated => { root.activate-context-command("delete"); }
+            }
+            if root.context-target-kind > 0 : MenuItem {
+                title: @tr("Add Midpoint Here");
+                activated => {
+                    root.midpoint-command("add", root.context-clip-id, 0, root.context-frame);
+                    root.close-context-popups();
+                }
             }
             if root.context-target-kind > 0 : MenuItem {
                 title: @tr("Split");

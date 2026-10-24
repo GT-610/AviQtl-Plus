@@ -559,6 +559,9 @@ impl LifecycleUi {
                     let _ = show_and_redraw(&main);
                 }
                 if let Some(timeline) = self.timeline.upgrade() {
+                    // Media ids belong to a project. Keeping the selection across a load would let
+                    // the panel's Remove button act on whichever entry happens to share the id.
+                    timeline.set_selected_media_id(-1);
                     let _ = show_and_redraw(&timeline);
                 }
                 if from_launcher && let Some(launcher) = self.launcher.upgrade() {
@@ -926,8 +929,10 @@ pub(super) fn editor_layout(
     mode: &str,
 ) -> [crate::dialogs::WindowGeometry; 3] {
     use crate::dialogs::WindowGeometry;
-    let timeline_height = (screen.height * if mode == "audio" { 45 } else { 32 } / 100)
-        .max(220)
+    // The media sidebar and the tool reminder live inside this window, so its floor has to
+    // leave room for a usable timeline above them rather than the old bare-empty layout.
+    let timeline_height = (screen.height * if mode == "audio" { 45 } else { 34 } / 100)
+        .max(300)
         .min(screen.height);
     let upper_height = (screen.height - timeline_height - 36)
         .max(480)
